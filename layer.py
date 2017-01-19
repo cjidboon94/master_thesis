@@ -78,6 +78,12 @@ class LinearLayer(Layer):
         return x @ W
 
     def backward(self, prev_der):
+        """prev_der should have dimension batch_size times output_dim
+        
+        returns: derivative of whole network with respect to inputs this 
+                 layer. It has dimensions batch_size times input_dim
+
+        """
         out = np.zeros((batch_size, input_dim))
         W_T = np.transpose(W)
         for i in range(batch_size):
