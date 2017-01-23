@@ -85,7 +85,7 @@ class LinearLayer(Layer):
 
         """
         out = np.zeros((batch_size, input_dim))
-        W_T = np.transpose(W)
+        W_T = np.transpose(self.W)
         for i in range(batch_size):
             out[i] = prev_der[i] @ W_T
 
@@ -95,7 +95,7 @@ class LinearLayer(Layer):
                 for l in range(self.data['output_dim']):
                     self.dW[j, k, l] = self.data['input'][j, k] * prev_der[j, l]  
 
-        if dW.shape[1:] != W.shape:
+        if self.dW.shape[1:] != self.W.shape:
             raise DimensionError()
         return out
 
