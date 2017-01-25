@@ -1,6 +1,6 @@
 import numpy as np
 
-class Train():
+class SGD():
     def __init__(self, network, X, y, learning_rate, iterations, batch_size):
         """train a feedforward ANN using backprop on data X, y
         
@@ -27,3 +27,4 @@ class Train():
             batch_data = self.get_batch_data()
             self.network.forward(batch_data)
             self.network.backward()
+            self.network.update(self.learning_rate)

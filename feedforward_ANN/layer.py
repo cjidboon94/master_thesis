@@ -58,6 +58,15 @@ class Layer():
 
         pass
 
+    def update(self, learning_rate):
+        """update the parameters of the module
+
+        note: the updating always looks as: W = W - learning_rate*np.mean(dW)
+              whether it is an minimazation/maximisation problem should be
+              adjusted for with the sign of the learning rate 
+        """
+        pass
+
 class LinearLayer(Layer):
     """linear map from dim batch_size*input_dim to batch_size*output_dim"""
 
@@ -98,6 +107,10 @@ class LinearLayer(Layer):
         if self.dW.shape[1:] != self.W.shape:
             raise DimensionError()
         return out
+
+    def update(self, learning_rate):
+        self.W = self.W - learning_rate*np.mean(self.dW, 0) 
+        
 
 class ReLuLayer(Layer):
     def init(self, input_dim, output_dim, batch_size):
