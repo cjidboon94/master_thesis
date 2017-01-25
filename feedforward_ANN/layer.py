@@ -16,7 +16,7 @@ class Layer():
 
     __metaclass__ = ABCMeta
     
-    def init(self, input_dim, output_dim, batch_size):
+    def __init__(self, input_dim, output_dim, batch_size):
         self.data = { 
             "batch_size":batch_size,
             "input_dim": input_dim,
@@ -70,10 +70,10 @@ class Layer():
 class LinearLayer(Layer):
     """linear map from dim batch_size*input_dim to batch_size*output_dim"""
 
-    def init(self, input_dim, output_dim, batch_size):
-        super().__init__(input_dim, output_dim, batch_size)    
-        self.W = np.random.normal((input_dim, output_dim))
-
+    def __init__(self, input_dim, output_dim, batch_size):
+        super().__init__(input_dim, output_dim, batch_size)
+        self.W = np.random.normal(loc=0, scale=1, size=(input_dim, output_dim))
+        
     def forward(self, x):
         """computes forward go
         
@@ -84,7 +84,7 @@ class LinearLayer(Layer):
         """
 
         self.data["input"] = x
-        return x @ W
+        return x @ self.W
 
     def backward(self, prev_der):
         """prev_der should have dimension batch_size times output_dim
@@ -93,13 +93,14 @@ class LinearLayer(Layer):
                  layer. It has dimensions batch_size times input_dim
 
         """
-        out = np.zeros((batch_size, input_dim))
+        out = np.zeros((self.data["batch_size"], self.data["input_dim"]))
         W_T = np.transpose(self.W)
-        for i in range(batch_size):
+        for i in range(self.data["batch_size"]):
             out[i] = prev_der[i] @ W_T
 
-        self.dW = np.zeros((batch_size, input_dim, output_dim))
-        for j in range(batch_size):
+        self.dW = np.zeros((self.data["batch_size"], self.data["input_dim"],
+                            self.data["output_dim"]))
+        for j in range(self.data["batch_size"]):
             for k in range(self.data['input_dim']):
                 for l in range(self.data['output_dim']):
                     self.dW[j, k, l] = self.data['input'][j, k] * prev_der[j, l]  
@@ -113,7 +114,7 @@ class LinearLayer(Layer):
         
 
 class ReLuLayer(Layer):
-    def init(self, input_dim, output_dim, batch_size):
+    def __init__(self, input_dim, output_dim, batch_size):
         super().__init__(input_dim, output_dim, batch_size)
 
     def forward(self, x):
@@ -127,7 +128,7 @@ class ReLuLayer(Layer):
         return prev_der @ der
 
 class TanHLayer(Layer):
-    def init(self, input_dim, output_dim, batch_size):
+    def __init__(self, input_dim, output_dim, batch_size):
         super().__init__(input_dim, output_dim, batch_size)
 
     def forward(self, x):
