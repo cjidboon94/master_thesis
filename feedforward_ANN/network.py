@@ -47,7 +47,7 @@ class Network():
         """update the weights of all layers in the network and return None"""
         if self.train_mode:
             raise ValueError("No updating allowed when not in train_mode")
-        if self.update = False:
+        if self.update == False:
             print("WARNING: weights have already been used to update" +  
                   "network. Make sure that not using a backward pass first" +
                   "was intended"

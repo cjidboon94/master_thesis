@@ -122,3 +122,24 @@ def preprocess_cifar10_data(X_train_raw, Y_train_raw, X_test_raw, Y_test_raw, nu
   X_test = np.reshape(X_test, (X_test.shape[0], -1))
 
   return X_train, Y_train, X_val, Y_val, X_test, Y_test
+
+def transform_label_encoding_to_one_hot(arr, num_classes):
+    """transforms an array using labels to a one hot encoding
+    
+    params:
+        arr: a one-dimensional numpy array of size N, all of its values should
+             be natural numbers or 0 within a certain bound, i.e. 0 to 10 and 
+             starting at 0.
+        num_classes: the number of different values that entries in  arr can
+                     take.
+
+    returns: a numpy array with dimensions N times num_classes where every 
+             row has num_classes-1 zero entries and one 1 corresponding to
+             the label in arr
+    """
+
+    out = np.zeros((arr.shape[0], num_classes))
+    for count, entry in enumerate(arr):
+        out[count] = np.array([1 if i==entry else 0 for i in range(num_classes)])
+
+    return out

@@ -1,6 +1,6 @@
 import numpy as np
 
-class SoftMaxCrossEntropyLoss():
+class SoftmaxCrossEntropyLoss():
     """ compute the combined softmax and cross-entropy on batches
 
     note: one hot encoding for y is assumed
@@ -25,9 +25,9 @@ class SoftMaxCrossEntropyLoss():
         self.batch_size = x.shape[0]
         self.x = x
         self.y = y
-        self.soft = self.softmax(x)
+        self.soft = self.softmax(x) + 10**(-11)
         out = np.zeros(self.batch_size)
-        for i in range(batch_size):
+        for i in range(self.batch_size):
             out[i] = -(y[i] @ np.log(self.soft[i]))
 
         return out
@@ -35,7 +35,7 @@ class SoftMaxCrossEntropyLoss():
     def compute_gradient(self): 
         return -(self.y - self.soft)
 
-    def softmax(x):
+    def softmax(self, x):
         """Compute softmax values for each sets of scores in x
         
         params:
