@@ -43,5 +43,15 @@ class TestLinearLayer(unittest.TestCase):
         )
         self.assertTrue(np.all(out==prev_der @ np.transpose(linear.W)))
 
+class TestReLuLayer(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def test_forward(self):
+        pass
+
+    def test_backwards(self):
+        pass
+
 if __name__=="__main__":
     unittest.main()

@@ -17,13 +17,11 @@ class Layer():
     __metaclass__ = ABCMeta
     
     def __init__(self, input_dim, output_dim, batch_size):
-        self.data = { 
-            "batch_size":batch_size,
-            "input_dim": input_dim,
-            "output_dim": output_dim,
-            "input": None,
-            "output": None
-        }
+            self.batch_size = batch_size
+            self.input_dim = input_dim
+            self.output_dim = output_dim
+            self.input = None
+            self.output = None
 
     @abstractmethod
     def forward(self, x):
@@ -70,9 +68,9 @@ class Layer():
 class LinearLayer(Layer):
     """linear map from dim batch_size*input_dim to batch_size*output_dim"""
 
-    def __init__(self, input_dim, output_dim, batch_size):
+    def __init__(self, input_dim, output_dim, batch_size, weight_scale=0.0001):
         super().__init__(input_dim, output_dim, batch_size)
-        self.W = np.random.normal(loc=0, scale=1, size=(input_dim, output_dim))
+        self.W = np.random.normal(loc=0, scale=weight_scale, size=(input_dim, output_dim))
         
     def forward(self, x):
         """computes forward go
@@ -83,7 +81,7 @@ class LinearLayer(Layer):
         returns: numpy array with dimensions batch_size times output_size
         """
 
-        self.data["input"] = x
+        self.input = x
         return x @ self.W
 
     def backward(self, prev_der):
@@ -93,17 +91,16 @@ class LinearLayer(Layer):
                  layer. It has dimensions batch_size times input_dim
 
         """
-        out = np.zeros((self.data["batch_size"], self.data["input_dim"]))
+        out = np.zeros((self.batch_size, self.input_dim))
         W_T = np.transpose(self.W)
-        for i in range(self.data["batch_size"]):
+        for i in range(self.batch_size):
             out[i] = prev_der[i] @ W_T
 
-        self.dW = np.zeros((self.data["batch_size"], self.data["input_dim"],
-                            self.data["output_dim"]))
-        for j in range(self.data["batch_size"]):
-            for k in range(self.data['input_dim']):
-                for l in range(self.data['output_dim']):
-                    self.dW[j, k, l] = self.data['input'][j, k] * prev_der[j, l]  
+        self.dW = np.zeros((self.batch_size, self.input_dim, self.output_dim))
+        for j in range(self.batch_size):
+            for k in range(self.input_dim):
+                for l in range(self.output_dim):
+                    self.dW[j, k, l] = self.input[j, k] * prev_der[j, l]  
 
         if self.dW.shape[1:] != self.W.shape:
             raise DimensionError()
@@ -118,6 +115,11 @@ class ReLuLayer(Layer):
         super().__init__(input_dim, output_dim, batch_size)
 
     def forward(self, x):
+        """performs max(0, x) on every entry of x
+        
+        params: 
+            x: a numpy array with dimensions batch size times input_dim
+        """
         self.input = x
         return np.maximum(x, 0)
 
@@ -125,7 +127,11 @@ class ReLuLayer(Layer):
         der = np.copy(self.input)
         der[der>0] = 1
         der[der<0] = 0
-        return prev_der @ der
+        out = np.zeros((self.batch_size, self.input_dim))
+        for i in range(self.batch_size):
+            out[i] = prev_der[i] @ der[i]
+
+        return out
 
 class TanHLayer(Layer):
     def __init__(self, input_dim, output_dim, batch_size):
