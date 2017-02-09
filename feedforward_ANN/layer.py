@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
 import numpy as np
+from scipy.special import expit
 
 class DimensionError(Exception): pass
 
@@ -56,6 +57,7 @@ class Layer():
 
         pass
 
+    @abstractmethod
     def update(self, learning_rate):
         """update the parameters of the module
 
@@ -68,9 +70,10 @@ class Layer():
 class LinearLayer(Layer):
     """linear map from dim batch_size*input_dim to batch_size*output_dim"""
 
-    def __init__(self, input_dim, output_dim, batch_size, weight_scale=0.0001):
+    def __init__(self, input_dim, output_dim, batch_size, weight_scale_w=0.0001, mean_b=0.01, scale_b=0.001):
         super().__init__(input_dim, output_dim, batch_size)
-        self.W = np.random.normal(loc=0, scale=weight_scale, size=(input_dim, output_dim))
+        self.W = np.random.normal(loc=0, scale=weight_scale_w, size=(input_dim, output_dim))
+        self.b = np.random.normal(loc=mean_b, scale=scale_b, size=output_dim)
         
     def forward(self, x):
         """computes forward go
@@ -82,7 +85,7 @@ class LinearLayer(Layer):
         """
 
         self.input = x
-        return x @ self.W
+        return x @ self.W + np.tile(self.b, (self.batch_size, 1))
 
     def backward(self, prev_der):
         """prev_der should have dimension batch_size times output_dim
@@ -91,10 +94,15 @@ class LinearLayer(Layer):
                  layer. It has dimensions batch_size times input_dim
 
         """
+        
+        #still add b
         out = np.zeros((self.batch_size, self.input_dim))
         W_T = np.transpose(self.W)
         for i in range(self.batch_size):
             out[i] = prev_der[i] @ W_T
+
+        self.db = np.zeros((self.batch_size, self.output_dim))
+        self.db = prev_der 
 
         self.dW = np.zeros((self.batch_size, self.input_dim, self.output_dim))
         for j in range(self.batch_size):
@@ -106,12 +114,21 @@ class LinearLayer(Layer):
             raise DimensionError()
         return out
 
-    def update(self, learning_rate):
-        self.W = self.W - learning_rate*np.mean(self.dW, 0) 
-        
+    def update(self, learning_rate, regularize=True, weight_decay=0.001):
+        if regularize:
+            self.W = ((1- learning_rate*weight_decay) * self.W -
+                      learning_rate*np.mean(self.dW, 0))
+        else:
+            self.W = self.W - learning_rate*np.mean(self.dW, 0)
+
+        self.b = self.b - learning_rate*np.mean(self.db, 0)
 
 class ReLuLayer(Layer):
     def __init__(self, input_dim, output_dim, batch_size):
+        if input_dim != output_dim:
+            print("please specify the same input_dim as output_dim for ReLU")
+            raise DimensionError()
+
         super().__init__(input_dim, output_dim, batch_size)
 
     def forward(self, x):
@@ -124,25 +141,61 @@ class ReLuLayer(Layer):
         return np.maximum(x, 0)
 
     def backward(self, prev_der):
-        der = np.copy(self.input)
-        der[der>0] = 1
-        der[der<0] = 0
         out = np.zeros((self.batch_size, self.input_dim))
         for i in range(self.batch_size):
-            out[i] = prev_der[i] @ der[i]
+            for j in range(self.input_dim):
+                out[i,j] = prev_der[i, j] if self.input[i, j] > 0 else 0 
 
         return out
+
+    def update(self, learning_rate, regularize=True, weight_decay=0.001):
+        pass
 
 class TanHLayer(Layer):
     def __init__(self, input_dim, output_dim, batch_size):
         super().__init__(input_dim, output_dim, batch_size)
+        if input_dim != output_dim:
+            print("please specify the same input_dim as output_dim for tanh")
+            raise DimensionError()
 
     def forward(self, x):
         self.input = x
-        return np.tanh(x)
+        self.output = np.tanh(x)
+        return self.output
               
     def backward(self, prev_der):
-        return prev_der @ (1- (np.tanh(self.input) @ np.tanh(self.input)))
+        out = np.zeros((self.batch_size, self.input_dim))
+        for i in range(self.batch_size):
+            for j in range(self.input_dim):
+                der = 1 - self.output[i, j]**2
+                out[i,j] = prev_der[i, j] * der 
 
+        return out
 
+    def update(self, learning_rate, regularize=True, weight_decay=0.001):
+        pass
+
+class SigmoidLayer(Layer):
+    def __init__(self, input_dim, output_dim, batch_size):
+        super().__init__(input_dim, output_dim, batch_size)
+        if input_dim != output_dim:
+            print("please specify the same input_dim as output_dim for sigmoid")
+            raise DimensionError()
+
+    def forward(self, x):
+        self.input = x
+        self.output = expit(x)
+        return self.output
+              
+    def backward(self, prev_der):
+        out = np.zeros((self.batch_size, self.input_dim))
+        for i in range(self.batch_size):
+            for j in range(self.input_dim):
+                der = self.output[i, j] * (1- self.output[i, j])
+                out[i,j] = prev_der[i, j] * der 
+
+        return out
+
+    def update(self, learning_rate, regularize=True, weight_decay=0.001):
+        pass
 
