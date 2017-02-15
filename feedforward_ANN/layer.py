@@ -122,12 +122,8 @@ class LinearLayer(Layer):
         self.b = self.b - learning_rate*np.mean(self.db, 0)
 
 class ReLuLayer(Layer):
-    def __init__(self, input_dim, output_dim, batch_size):
-        if input_dim != output_dim:
-            print("please specify the same input_dim as output_dim for ReLU")
-            raise DimensionError()
-
-        super().__init__(input_dim, output_dim, batch_size)
+    def __init__(self, input_dim, batch_size):
+        super().__init__(input_dim, input_dim, batch_size)
 
     def forward(self, x):
         """performs max(0, x) on every entry of x
@@ -152,11 +148,8 @@ class ReLuLayer(Layer):
         pass
 
 class TanHLayer(Layer):
-    def __init__(self, input_dim, output_dim, batch_size):
-        super().__init__(input_dim, output_dim, batch_size)
-        if input_dim != output_dim:
-            print("please specify the same input_dim as output_dim for tanh")
-            raise DimensionError()
+    def __init__(self, input_dim, batch_size):
+        super().__init__(input_dim, input_dim, batch_size)
 
     def forward(self, x):
         self.input = x
@@ -176,11 +169,8 @@ class TanHLayer(Layer):
         pass
 
 class SigmoidLayer(Layer):
-    def __init__(self, input_dim, output_dim, batch_size):
-        super().__init__(input_dim, output_dim, batch_size)
-        if input_dim != output_dim:
-            print("please specify the same input_dim as output_dim for sigmoid")
-            raise DimensionError()
+    def __init__(self, input_dim, batch_size):
+        super().__init__(input_dim, input_dim, batch_size)
 
     def forward(self, x):
         self.input = x

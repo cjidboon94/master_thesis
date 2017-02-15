@@ -48,10 +48,102 @@ class TestReLuLayer(unittest.TestCase):
         pass
 
     def test_forward(self):
-        pass
+        input_dim, output_dim, batch_size = 3, 3, 2
+        relu = layer.ReLuLayer(input_dim, batch_size)
+        x = np.array(
+            [
+                [2, -3, 0],
+                [3, 20, -5],
+                [5, 6, 7],
+            ]
+        )
+        pred_out = relu.forward(x)
+        out = np.array(
+            [
+                [2, 0, 0],
+                [3, 20, 0],
+                [5, 6, 7]
+            ]
+            )
+        self.assertTrue(np.all(out==pred_out))
 
     def test_backwards(self):
+        input_dim, output_dim, batch_size = 3, 3, 2
+        relu = layer.ReLuLayer(input_dim, batch_size)
+        x = np.array(
+            [
+                [4, -9, 0],
+                [5, 20, -5],
+            ]
+        )
+        relu.forward(x)
+        prev_der = np.array(
+            [
+                [1, 10, -4],
+                [20, 25, 40]
+            ]
+        )
+
+        pred_out = relu.backward(prev_der) 
+        out = np.array(
+            [
+                [1, 0, 0],
+                [20, 25, 0]
+            ]
+        )
+        self.assertTrue(np.all(out==pred_out))
+
+class TestSigmoidLayer(unittest.TestCase):
+    def setUp(self):
         pass
 
+    def test_forward(self):
+        sigmoid = layer.SigmoidLayer(3, 2)
+        x = np.array(
+            [
+                [4, -9, 0],
+                [5, 20, -5],
+            ]
+        )
+        pred_out = sigmoid.forward(x)
+        out = np.array(
+            [
+                [
+                    1/(1+np.exp(-x[0,0])), 
+                    1/(1+np.exp(-x[0,1])),
+                    1/(1+np.exp(-x[0,2]))
+                ],
+                [
+                    1/(1+np.exp(-x[1,0])), 
+                    1/(1+np.exp(-x[1,1])),
+                    1/(1+np.exp(-x[1,2]))
+                ],
+            ]
+        )
+        self.assertTrue(np.allclose(out, pred_out))
+
+    def test_backward(self):
+        sigmoid = layer.SigmoidLayer(3, 2)
+        x = np.array(
+            [
+                [4, -9, 0],
+                [5, 20, -5],
+            ]
+        )
+        forward_out = sigmoid.forward(x)
+        prev_der = np.array(
+            [
+                [0, 5, 7],
+                [-1, 5, -2]
+            ]
+        )
+
+        pred_out = sigmoid.backward(prev_der)
+        self.assertEqual(pred_out.shape, (2,3))
+        #print(pred_out)
+        #print(forward_out[1,1]*(1-forward_out[1,1]) * prev_der[1,1])
+        self.assertAlmostEqual(pred_out[1,1], 
+                         forward_out[1,1]*(1-forward_out[1,1]) * prev_der[1,1])
+    
 if __name__=="__main__":
     unittest.main()

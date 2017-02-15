@@ -29,10 +29,8 @@ class Grid():
         plt.show()
 
     def check_point_in_grid(self, point):
-        if 0 < point[0] < self.grid_length and 0 < point[1] < self.grid_width:
-            return True
-        else:
-            return False
+        return (0 <= point[0] <= self.grid_length-1 and 
+                0 <= point[1] <= self.grid_width-1)
 
     def convert_point_to_be_in_grid(self, point):
         """maps point to closest point on the grid (it can mapped onto itself)
@@ -43,17 +41,17 @@ class Grid():
         if self.check_point_in_grid(point):
             return point
         else:
-            new_point = [0, 0]
+            new_point = [point[0], point[1]]
             if point[0] < 0:
                 new_point[0] = 0
             elif point[0] > self.grid_length:
-                new_point[0] = self.grid_length 
+                new_point[0] = self.grid_length-1
             if point[1] < 0:
                 new_point[1] = 0
             elif point[1] > self.grid_width:
-                new_point[1] = self.grid_width
+                new_point[1] = self.grid_width-1
 
-        return new_point
+            return new_point
 
     def get_random_point_in_grid(self, distance_border):
         """ get a random point in the grid that has a min distance to border
@@ -100,8 +98,8 @@ class Circle(Grid):
             [center[0]+radius, center[1]+radius]
         )
 
-        for i in np.arange(int(left_bottom[0]), math.ceil(right_top[0]+1)):
-            for j in np.arange(int(left_bottom[1]), math.ceil(right_top[1]+1)):
+        for i in np.arange(int(left_bottom[0]), math.ceil(right_top[0])+1):
+            for j in np.arange(int(left_bottom[1]), math.ceil(right_top[1])+1):
                 if self.distance([i, j], center) <= radius:
                     self.grid[i, j] = 1  
 

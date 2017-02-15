@@ -19,10 +19,10 @@ class SGD():
         chosen_data_points = np.random.choice(self.X.shape[1], self.batch_size)
         return self.X[chosen_data_points], self.y[chosen_data_points]
 
-    def train(self, iterations, learning_rate):
+    def train(self, iterations, learning_rate, verbose=True):
         loss_li = []
         for i in range(iterations):
-            if i%10==0 and i!=0:
+            if verbose and i%50==0 and i!=0:
                 print("{} iterations have passed".format(i))
             batch_data = self.get_batch_data()
             z = self.network.forward(batch_data[0])

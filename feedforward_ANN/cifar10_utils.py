@@ -62,7 +62,7 @@ def load_cifar10(cifar10_folder):
   X_test, Y_test = load_cifar10_batch(os.path.join(cifar10_folder, 'test_batch'))
   return X_train, Y_train, X_test, Y_test
 
-def get_cifar10_raw_data():
+def get_cifar10_raw_data(cifar10_folder=None):
   """
   Gets raw CIFAR10 data from http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz.
 
@@ -72,10 +72,14 @@ def get_cifar10_raw_data():
     X_test: CIFAR10 test data in numpy array with shape (10000, 32, 32, 3).
     Y_test: CIFAR10 test labels in numpy array with shape (10000, ).
   """
+
+  if cifar10_folder is None:
+    cifar10_folder = CIFAR10_FOLDER
+
   if not os.path.exists(CIFAR10_FOLDER):
     os.system(CIFAR10_DOWNLOAD_SCRIPT)
 
-  X_train, Y_train, X_test, Y_test = load_cifar10(CIFAR10_FOLDER)
+  X_train, Y_train, X_test, Y_test = load_cifar10(cifar10_folder)
 
   return X_train, Y_train, X_test, Y_test
 
