@@ -95,7 +95,6 @@ class LinearLayer(Layer):
 
         """
         
-        #still add b
         out = np.zeros((self.batch_size, self.input_dim))
         W_T = np.transpose(self.W)
         for i in range(self.batch_size):
@@ -106,9 +105,8 @@ class LinearLayer(Layer):
 
         self.dW = np.zeros((self.batch_size, self.input_dim, self.output_dim))
         for j in range(self.batch_size):
-            for k in range(self.input_dim):
-                for l in range(self.output_dim):
-                    self.dW[j, k, l] = self.input[j, k] * prev_der[j, l]  
+            for l in range(self.output_dim):
+                self.dW[j, :, l] = self.input[j] * prev_der[j, l]  
 
         if self.dW.shape[1:] != self.W.shape:
             raise DimensionError()
@@ -141,10 +139,12 @@ class ReLuLayer(Layer):
         return np.maximum(x, 0)
 
     def backward(self, prev_der):
-        out = np.zeros((self.batch_size, self.input_dim))
-        for i in range(self.batch_size):
-            for j in range(self.input_dim):
-                out[i,j] = prev_der[i, j] if self.input[i, j] > 0 else 0 
+        out = np.copy(prev_der) 
+        out[self.input<=0] = 0
+        #out = np.zeros((self.batch_size, self.input_dim))
+        #for i in range(self.batch_size):
+        #    for j in range(self.input_dim):
+        #        out[i,j] = prev_der[i, j] if self.input[i, j] > 0 else 0 
 
         return out
 
