@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 #import seaborn as sns
 
+DEBUG = True
+
 class Grid():
     """class defining a two-dimensional numpy array
     
@@ -33,7 +35,7 @@ class Grid():
                 0 <= point[1] <= self.grid_width-1)
 
     def convert_point_to_be_in_grid(self, point):
-        """maps point to closest point on the grid (it can mapped onto itself)
+        """maps point to closest point in the grid (it can mapped onto itself)
 
         returns: closest point on the grid, this means that if the point is
                  already in the grid it is returned unchanged
@@ -44,29 +46,37 @@ class Grid():
             new_point = [point[0], point[1]]
             if point[0] < 0:
                 new_point[0] = 0
-            elif point[0] > self.grid_length:
+            elif point[0] > self.grid_length-1:
                 new_point[0] = self.grid_length-1
             if point[1] < 0:
                 new_point[1] = 0
-            elif point[1] > self.grid_width:
+            elif point[1] > self.grid_width-1:
                 new_point[1] = self.grid_width-1
 
             return new_point
 
+    def convert_point_to_grid_point(self, point):
+        point = self.convert_point_to_be_in_grid(point)
+        return [round(point[0]), round(point[1])]
+
     def get_random_point_in_grid(self, distance_border):
         """ get a random point in the grid that has a min distance to border
             
-        returns: a tuple representing a point in the grid, where the left 
+        returns: a list representing a point in the grid, where the left 
                  upper corner has coordinates 0, 0
         """        
-        return (
+        return [
             np.random.uniform(
                 distance_border, self.grid_length - distance_border
             ),
             np.random.uniform(
                 distance_border, self.grid_width - distance_border
             )
-        )
+        ]
+
+    def get_random_point_on_grid(self, distance_border):
+        point = self.get_random_point_in_grid(distance_border)
+        return [round(point[0]), round(point[1])]
 
     @abstractmethod
     def fill(self):
@@ -89,7 +99,6 @@ class Circle(Grid):
         self.initialize(center, radius)
 
     def initialize(self, center, radius):
-        #something is wrong circles arent created properly
         self.grid = np.zeros(self.grid.shape)  
         left_bottom = self.convert_point_to_be_in_grid(
             [center[0]-radius, center[1]-radius]
@@ -97,21 +106,19 @@ class Circle(Grid):
         right_top = self.convert_point_to_be_in_grid(
             [center[0]+radius, center[1]+radius]
         )
-
+        if DEBUG:
+            print("the left bottom is")
+            print(left_bottom)
+            print(right_top)
+        
         for i in np.arange(int(left_bottom[0]), math.ceil(right_top[0])+1):
             for j in np.arange(int(left_bottom[1]), math.ceil(right_top[1])+1):
                 if self.distance([i, j], center) <= radius:
                     self.grid[i, j] = 1  
 
-        #plt.imshow(self.grid, cmap='bone',interpolation='none')
-        #plt.title("debugging, the center {},{} and the radius {}".format(
-        #    center[0], center[1], radius)
-        #)
-        #plt.show()   
-
-    def generate_random(self, distance_border, radius_ran):        
-        radius = np.random.uniform(*radius_ran)
-        center = self.get_random_point_in_grid(distance_border)
+    def generate_random(self, distance_border, radius_li):        
+        radius = np.random.choice(radius_li)
+        center = self.get_random_point_on_grid(distance_border)
         self.initialize(center, radius)
         return np.copy(self.grid).flatten()
 
@@ -121,7 +128,8 @@ class Circle(Grid):
 
 
 class Rectangle(Grid):
-    def __init__(self, grid_width, grid_length, center, width, length, rotation):
+    def __init__(self, grid_width, grid_length, center, width, length, 
+                 rotation):
         """the rectangle object
 
         params:
@@ -156,14 +164,12 @@ class Rectangle(Grid):
                 if ro_point[0] <= length/2 and ro_point[1] <= width/2:
                     self.grid[i, j] = 1
 
-    def generate_random(self, distance_border, width_ran, length_range, rotate=True):
-        center = self.get_random_point_in_grid(distance_border)
-        width = np.random.uniform(*width_ran)
-        length = np.random.uniform(length_range[0], max(length_range[1], width-2))  
-        rotation = 0        
-        if rotate:
-            rotation = np.deg2rad(np.random.choice([0, 45, 90, 135]))
-
+    def generate_random(self, distance_border, width_li, length_li,
+                        rotation_li):
+        center = self.get_random_point_on_grid(distance_border)
+        width = np.random.choice(width_li)
+        length = np.random.choice(length_li)  
+        rotation = np.deg2rad(np.random.choice(rotation_li))
         self.initialize(center, width, length, rotation)        
         return np.copy(self.grid).flatten()
 
@@ -175,20 +181,18 @@ class Square(Rectangle):
         super().__init__(grid_width, grid_length, center, size, size, rotation)
         self.type = "square"
 
-    def generate_random(self, distance_border, size_range, rotate):
-        center = self.get_random_point_in_grid(distance_border)
-        size = np.random.uniform(*size_range)        
-        rotation = 0        
-        if rotate:
-            rotation = np.deg2rad(np.random.choice([0, 45, 90, 135]))
-        self.initialize(center, size, size, rotation)        
+    def generate_random(self, distance_border, size_li, rotation_li):
+        center = self.get_random_point_on_grid(distance_border)
+        size = np.random.choice(size_li)        
+        rotation = np.deg2rad(np.random.choice(rotation_li))
+        self.initialize(center, size, size, rotation) 
         return np.copy(self.grid).flatten()
 
 class GenerateData():    
     def __init__(self, grid_len, grid_width, add_noise=False, params=None):
         self.grid_length = grid_len 
-        self.grid_width = grid_width        
-        self.add_noise = False        
+        self.grid_width = grid_width 
+        self.add_noise = False 
         self.category_li = np.array(["square", "rectangle", "circle"])
         self.category_dict = {k:count for count, k in enumerate(self.category_li)}
         
@@ -203,19 +207,21 @@ class GenerateData():
         }
 
         if params is None:
-            size_range_square = (4, 7)
-            radius_range_circle = (4, 5.5)
-            length_range_rectangle = (4.5, 7)
-            width_range_rectangle = (2, 4)
+            size_square_li = [4, 4.5, 5, 5.5, 6, 6.5, 7]
+            radius_circle_li = [2.5, 3, 3.5, 4]
+            length_rectangle_li = [4.5, 5, 5.5, 6, 6.5, 7]
+            width_rectangle_li = [2, 2.5, 3, 3.5, 4]
+            rotation_li_rectangle = [0, 45, 90, 135]
+            rotation_li_square = [45]
             rotation = True
             distance_border = 2
-            
 
             self.shape_params = {
-                'circle': (distance_border, radius_range_circle),
-                'square': (distance_border, size_range_square, rotation),
-                'rectangle': (distance_border, width_range_rectangle, 
-                               length_range_rectangle, rotation)            
+                'circle': (distance_border, radius_circle_li),
+                'square': (distance_border, size_square_li, 
+                           rotation_li_square),
+                'rectangle': (distance_border, width_rectangle_li, 
+                              length_rectangle_li, rotation_li_rectangle)
             }
         
         else:
@@ -233,6 +239,7 @@ class GenerateData():
         y = np.zeros((batch_size, len(self.category_li)))
         for i in range(batch_size):
             category = np.random.choice(self.category_li)
+            print(category)
             X[i] = self.shape_dict[category].generate_random(
                 *self.shape_params[category]
             )
@@ -253,11 +260,13 @@ if __name__ == '__main__':
     #square = Square(12, 12, (7, 9), 4, 0)
     #square.show_grid()
 
-    gen = GenerateData(20, 20)
+    grid_len = 15
+    grid_wid = 15
+    gen = GenerateData(grid_len, grid_wid)
 
     samples, y_samples = gen.generate_batch_samples(10)
     for count, sample in enumerate(samples):
-        picture = np.reshape(sample, (20, 20))
+        picture = np.reshape(sample, (grid_len, grid_wid))
         plt.imshow(picture, cmap='bone', interpolation='none')
         cat = 0
         for i, entry in enumerate(y_samples[count]):
