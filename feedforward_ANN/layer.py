@@ -70,10 +70,12 @@ class Layer():
 class LinearLayer(Layer):
     """linear map from dim batch_size*input_dim to batch_size*output_dim"""
 
-    def __init__(self, input_dim, output_dim, batch_size, weight_scale_w=0.0001, mean_b=0.01, scale_b=0.001):
+    def __init__(self, input_dim, output_dim, batch_size, w_mean=0, 
+                 w_std=0.0001, b_mean=0.01, b_std=0.001):
         super().__init__(input_dim, output_dim, batch_size)
-        self.W = np.random.normal(loc=0, scale=weight_scale_w, size=(input_dim, output_dim))
-        self.b = np.random.normal(loc=mean_b, scale=scale_b, size=output_dim)
+        self.W = np.random.normal(loc=w_mean, scale=w_std,
+                                  size=(input_dim, output_dim))
+        self.b = np.random.normal(loc=b_mean, scale=b_std, size=output_dim)
         
     def forward(self, x):
         """computes forward go

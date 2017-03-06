@@ -1,4 +1,5 @@
 import numpy as np
+from feedforward_ANN import layer
 
 class DimensionError(ValueError):pass
 
@@ -11,27 +12,37 @@ class Network():
         self.update = False
         self.weight_decay = weight_decay
         self.batch_size = batch_size
+        self.layer_types = ["linear", "relu"]
 
-    def add_layer(self, layer):
+    def add_layer(self, layer_type, dim_out=None, input_dim=None, params=None):
         """adds layer to network
         
-        layer: should implement the Layer class
+        params:
+            layer_type: the type of the layer, should be in self.layer_types
+            dim_out: the dimension of the output
+            input_size: only used for first layer
+            params: the parameters used to initialise the layer if any
         """
-        if self.layers != []:
-            if self.layers[-1].output_dim != layer.input_dim:
-                error_message = ("the output dimension of the previous layer" +
-                    "does not match the input dimension of the layer that" +
-                    "is being added"
-                )
-                print(error_message)
-                raise DimensionError()
-        if layer.batch_size != self.batch_size:
-            print("the layer to be added has batch size {}, it should be {}".format(
-                layer.batch_size, self.batch_size
-            ))
-            raise DimensionError()
 
-        self.layers.append(layer)
+        if self.layers != [] and input_dim is not None:
+            print(("WARNING: input size given, since this is not the first" + 
+                   "layer, the input_size will be determined automatically")) 
+
+        if self.layers == [] and input_dim is None:
+            raise TypeError("for the first layer an input size is needed")
+        elif self.layers == []:
+            dim_in = input_dim
+        else:
+            dim_in = self.layers[-1].output_dim    
+          
+        if layer_type == 'linear':
+            if dim_out is None:
+                raise TypeError("specify an output_dim to add a linear layer")
+            self.layers.append(
+                layer.LinearLayer(dim_in, dim_out, self.batch_size, **params)
+            )
+        elif layer_type == 'relu':
+            self.layers.append(layer.ReLuLayer(dim_in, self.batch_size))
 
     def remove_layer(self):
         self.layers.pop()
