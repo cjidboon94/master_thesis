@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 #import seaborn as sns
 
-DEBUG = True
+DEBUG = False 
 
 class Grid():
     """class defining a two-dimensional numpy array
@@ -213,7 +213,6 @@ class GenerateData():
             width_rectangle_li = [2, 2.5, 3, 3.5, 4]
             rotation_li_rectangle = [0, 45, 90, 135]
             rotation_li_square = [45]
-            rotation = True
             distance_border = 2
 
             self.shape_params = {
@@ -239,7 +238,6 @@ class GenerateData():
         y = np.zeros((batch_size, len(self.category_li)))
         for i in range(batch_size):
             category = np.random.choice(self.category_li)
-            print(category)
             X[i] = self.shape_dict[category].generate_random(
                 *self.shape_params[category]
             )
