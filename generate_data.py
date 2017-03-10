@@ -1,6 +1,8 @@
 from abc import ABCMeta, abstractmethod
 import math
+import itertools
 
+import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 #import seaborn as sns
@@ -12,9 +14,10 @@ class Grid():
     
     note: conceptually the left-bottom corner of the grid represents the 
           origin (position (0,0)) where the first position represents the
-          the x-axis (horizontal) and the second position the y-axis
+          the x-axis (horizontal) and the second position the y-axis. The
+          length is conceptually on the y-axis and the width on the x-axis.
     """
-    __metaclass__ = ABCMeta
+    #__metaclass__ = ABCMeta
 
     def __init__(self, grid_length, grid_width):
         self.grid_length = grid_length
@@ -170,7 +173,7 @@ class Rectangle(Grid):
         width = np.random.choice(width_li)
         length = np.random.choice(length_li)  
         rotation = np.deg2rad(np.random.choice(rotation_li))
-        self.initialize(center, width, length, rotation)        
+        self.initialize(center, width, length, rotation) 
         return np.copy(self.grid).flatten()
 
     def rotate(self, center, point):
@@ -178,14 +181,18 @@ class Rectangle(Grid):
 
 class Square(Rectangle):
     def __init__(self, grid_width, grid_length, center, size, rotation):
-        super().__init__(grid_width, grid_length, center, size, size, rotation)
+        Grid.__init__(self, grid_width, grid_length)
         self.type = "square"
+        self.initialize(center, size, rotation)
+
+    def initialize(self, center, size, rotation):
+        super().initialize(center, size, size, rotation)
 
     def generate_random(self, distance_border, size_li, rotation_li):
         center = self.get_random_point_on_grid(distance_border)
         size = np.random.choice(size_li)        
         rotation = np.deg2rad(np.random.choice(rotation_li))
-        self.initialize(center, size, size, rotation) 
+        self.initialize(center, size, rotation) 
         return np.copy(self.grid).flatten()
 
 class GenerateData():    
@@ -201,30 +208,115 @@ class GenerateData():
         self.shape_dict = {
             'circle': Circle(grid_width, grid_len, center_dummy, size_dummy),
             'square': Square(grid_width, grid_len, center_dummy, 
-                             size_dummy, True),
+                             size_dummy, 0),
             'rectangle': Rectangle(grid_width, grid_len, center_dummy, 
-                                   size_dummy+1, size_dummy-1, True)
+                                   size_dummy+1, size_dummy-1, 0)
         }
 
         if params is None:
-            size_square_li = [4, 4.5, 5, 5.5, 6, 6.5, 7]
-            radius_circle_li = [2.5, 3, 3.5, 4]
-            length_rectangle_li = [4.5, 5, 5.5, 6, 6.5, 7]
-            width_rectangle_li = [2, 2.5, 3, 3.5, 4]
-            rotation_li_rectangle = [0, 45, 90, 135]
-            rotation_li_square = [45]
-            distance_border = 2
-
-            self.shape_params = {
-                'circle': (distance_border, radius_circle_li),
-                'square': (distance_border, size_square_li, 
-                           rotation_li_square),
-                'rectangle': (distance_border, width_rectangle_li, 
-                              length_rectangle_li, rotation_li_rectangle)
+            params = {
+                "size_square_li" : [4, 4.5, 5, 5.5, 6, 6.5, 7],
+                "radius_circle_li" : [2.5, 3, 3.5, 4],
+                "length_rectangle_li" : [5, 5.5, 6, 6.5, 7],
+                "width_rectangle_li" : [2.5, 3, 3.5, 4],
+                "rotation_li_rectangle" : [0, 45, 90, 135],
+                "rotation_li_square" : [0, 45],
+                "distance_border" : 2
             }
-        
+        self.params = params
+
+        self.shape_params = {
+            'circle': (params["distance_border"], params["radius_circle_li"]),
+            'square': (params["distance_border"], params["size_square_li"], 
+                       params["rotation_li_square"]),
+            'rectangle': (
+                params["distance_border"], params["width_rectangle_li"], 
+                params["length_rectangle_li"], params["rotation_li_rectangle"]
+            )
+        }
+    
+    def generate_all_configurations(self, mover, shape):
+        if shape == 'circle':
+            pictures =  [
+                Circle(self.grid_length, self.grid_width, mover, rad).grid 
+                for rad in self.params["radius_circle_li"]
+            ]
+        elif shape == 'rectangle':
+            pictures = []
+            sizes = itertools.product(
+                self.params["width_rectangle_li"], 
+                self.params["length_rectangle_li"],
+                np.deg2rad(self.params["rotation_li_rectangle"]).tolist()
+            )
+            for prod in sizes: 
+                self.shape_dict["rectangle"].initialize(mover, *prod)
+                pictures.append(np.copy(self.shape_dict["rectangle"].grid))
+        elif shape == 'square':
+            pictures = []
+            sizes = itertools.product(
+                self.params["size_square_li"],
+                np.deg2rad(self.params["rotation_li_square"]).tolist()
+            )
+            for prod in sizes: 
+                self.shape_dict['square'].initialize(mover, *prod)
+                pictures.append(np.copy(self.shape_dict["square"].grid))
         else:
-            self.shape_params = params
+            print("please input a valid shape")
+
+        return pictures
+
+    def generate_all_data(self, distance_border, start=None, end=None,
+                          stride=0.5, shape=None):
+        """generate all possible pictures for a given shape
+        
+        note: generates all possible configurations given a certain shape
+            from the start position moving rightwards with the given stride
+            and up at the end of the row. The start position indicates the
+            center of the figure
+
+        params:
+            distance_border: minimal distance border of the grid and center
+            start: starting position at the grid (iterable length two)
+                defaults to (distance_border, distance_border)
+            stride: the width of the steps
+            shape: for which shape the configuration must be made. Defaults
+                to None, in which it is done for all shapes
+        """
+        if shape is None:
+            shape_li = self.category_li
+        elif shape not in self.category_li:
+            raise ValueError("please provide a valid shape name")
+        else:
+            shape_li = [shape]
+
+        if start is None:
+            start = (distance_border, distance_border)
+        if end is None:
+            end = (self.grid_length-distance_border, 
+                   self.grid_width-distance_border)
+
+        grid = Grid(self.grid_length, self.grid_width) 
+        if not (grid.check_point_in_grid(start) or grid.check_point_in_grid(end)):
+            raise ValueError("start and end point should be in grid")
+        if start[0]>end[0] and start[1]>end[1]:
+            raise ValueError("start point should be lower than end")
+        
+        picture_li = []
+        for wid in range(start[0], self.grid_width-distance_border+1, 1):
+            picture_li.extend(self.generate_all_configurations(
+                (wid, start[1]), shape)
+            )
+        wid_range = range(distance_border, self.grid_width-distance_border+1, 1)
+        len_range = range(start[1]+1, self.grid_width-distance_border+1, 1) 
+        for width in wid_range:
+            for length in len_range:
+                picture_li.extend(self.generate_all_configurations(
+                    (width, length), shape)
+                )                         
+
+        pictures = np.array([picture.flatten() for picture in picture_li])
+        picture_arr = pd.DataFrame(pictures).drop_duplicates().values
+        return picture_arr, picture_li
 
     def generate_batch_samples(self, batch_size, shape_prop=None):
         """generate tuple data points plus labels
@@ -261,6 +353,12 @@ if __name__ == '__main__':
     grid_len = 15
     grid_wid = 15
     gen = GenerateData(grid_len, grid_wid)
+
+    rec = Rectangle(10, 10, (5, 5), 3, 6, 0)
+    rec = np.reshape(rec.grid, (10, 10))
+    plt.imshow(rec, cmap='bone', interpolation='none')
+    plt.show()
+    print(rec)
 
     samples, y_samples = gen.generate_batch_samples(10)
     for count, sample in enumerate(samples):
