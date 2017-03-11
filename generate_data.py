@@ -296,27 +296,30 @@ class GenerateData():
                    self.grid_width-distance_border)
 
         grid = Grid(self.grid_length, self.grid_width) 
-        if not (grid.check_point_in_grid(start) or grid.check_point_in_grid(end)):
+        if not (grid.check_point_in_grid(start) or 
+                grid.check_point_in_grid(end)):
             raise ValueError("start and end point should be in grid")
         if start[0]>end[0] and start[1]>end[1]:
             raise ValueError("start point should be lower than end")
         
         picture_li = []
-        for wid in range(start[0], self.grid_width-distance_border+1, 1):
-            picture_li.extend(self.generate_all_configurations(
-                (wid, start[1]), shape)
-            )
+        for shape in shape_li:
+            for wid in range(start[0], self.grid_width-distance_border+1, 1):
+                picture_li.extend(self.generate_all_configurations(
+                    (wid, start[1]), shape)
+                )
         wid_range = range(distance_border, self.grid_width-distance_border+1, 1)
         len_range = range(start[1]+1, self.grid_width-distance_border+1, 1) 
-        for width in wid_range:
-            for length in len_range:
-                picture_li.extend(self.generate_all_configurations(
-                    (width, length), shape)
-                )                         
+        for shape in shape_li:
+            for width in wid_range:
+                for length in len_range:
+                    picture_li.extend(self.generate_all_configurations(
+                        (width, length), shape)
+                    )                         
 
         pictures = np.array([picture.flatten() for picture in picture_li])
         picture_arr = pd.DataFrame(pictures).drop_duplicates().values
-        return picture_arr, picture_li
+        return picture_arr
 
     def generate_batch_samples(self, batch_size, shape_prop=None):
         """generate tuple data points plus labels
