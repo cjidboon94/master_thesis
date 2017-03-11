@@ -70,12 +70,15 @@ class Layer():
 class LinearLayer(Layer):
     """linear map from dim batch_size*input_dim to batch_size*output_dim"""
 
-    def __init__(self, input_dim, output_dim, batch_size, w_mean=0, 
-                 w_std=0.0001, b_mean=0.01, b_std=0.001):
+    def __init__(self, input_dim, output_dim, batch_size, weight_factor,
+                 bias_value, learning_rate):
         super().__init__(input_dim, output_dim, batch_size)
-        self.W = np.random.normal(loc=w_mean, scale=w_std,
-                                  size=(input_dim, output_dim))
-        self.b = np.random.normal(loc=b_mean, scale=b_std, size=output_dim)
+        self.W = weight_factor * np.random.normal(
+            loc=0, scale=1, size=(input_dim, output_dim)
+        )
+        #self.b = np.random.normal(loc=0.01, scale=0.001, size=output_dim)
+        self.b = np.full(shape=output_dim, fill_value=bias_value)
+        self.learning_rate = learning_rate
         
     def forward(self, x):
         """computes forward go
@@ -114,14 +117,14 @@ class LinearLayer(Layer):
             raise DimensionError()
         return out
 
-    def update(self, learning_rate, regularize=True, weight_decay=0.001):
+    def update(self, regularize=True, weight_decay=0.001):
         if regularize:
-            self.W = ((1- learning_rate*weight_decay) * self.W -
-                      learning_rate*np.mean(self.dW, 0))
+            self.W = ((1 - self.learning_rate*weight_decay) * self.W -
+                      self.learning_rate*np.mean(self.dW, 0))
         else:
-            self.W = self.W - learning_rate*np.mean(self.dW, 0)
+            self.W = self.W - self.learning_rate*np.mean(self.dW, 0)
 
-        self.b = self.b - learning_rate*np.mean(self.db, 0)
+        self.b = self.b - self.learning_rate*np.mean(self.db, 0)
 
 class ReLuLayer(Layer):
     def __init__(self, input_dim, batch_size):
@@ -146,7 +149,7 @@ class ReLuLayer(Layer):
 
         return out
 
-    def update(self, learning_rate, regularize=True, weight_decay=0.001):
+    def update(self, regularize=True, weight_decay=0.001):
         pass
 
 class TanHLayer(Layer):

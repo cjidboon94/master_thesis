@@ -77,7 +77,7 @@ class Network():
         for layer in self.layers:
             layer.batch_size = batch_size
 
-    def update_weights(self, learning_rate, regularize=True):
+    def update_weights(self, regularize=True):
         """update the weights of all layers in the network and return None"""
         if not self.train_mode:
             raise ValueError("No updating allowed when not in train_mode")
@@ -87,9 +87,9 @@ class Network():
                   "was intended"
             )
 
+
         for layer in self.layers:
-            layer.update(learning_rate, regularize=regularize, 
-                         weight_decay=self.weight_decay)
+            layer.update(regularize=regularize, weight_decay=self.weight_decay)
 
         self.update = False
        
