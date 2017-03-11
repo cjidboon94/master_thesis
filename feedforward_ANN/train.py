@@ -16,17 +16,25 @@ class SGD():
 
     def get_batch_data(self):
         """return a batch of data points and classes (of X and y)"""
-        chosen_data_points = np.random.choice(self.X.shape[1], self.batch_size)
+        chosen_data_points = np.random.choice(self.X.shape[0], self.batch_size)
         return self.X[chosen_data_points], self.y[chosen_data_points]
 
-    def train(self, iterations, learning_rate, verbose=True):
+    def train(self, iterations, decay_rate, verbose=True):
         loss_li = []
+ 
         for i in range(iterations):
             if verbose and i%50==0 and i!=0:
                 print("{} iterations have passed".format(i))
-            batch_data = self.get_batch_data()
-            z = self.network.forward(batch_data[0])
-            self.network.loss.compute_loss(z, batch_data[1])
+            batch_data, batch_labels = self.get_batch_data()
+            z = self.network.forward(batch_data)
+            self.network.loss.compute_loss(z, batch_labels)
 
             self.network.backward()
-            self.network.update_weights(learning_rate)
+            self.network.update_weights()
+
+        #primitive decaying learning rates
+        for layer in self.network.layers:
+            try:
+                layer.learning_rate = layer.learning_rate*decay_rate 
+            except AttributeError:
+                pass
