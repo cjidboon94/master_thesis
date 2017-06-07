@@ -203,12 +203,14 @@ class ProbabilityArray():
         conditional_labels: list of integers
             The variables that are conditioned on
 	"""
+        print("first finding the joint marginal")
         joint_distribution, marginal_labels, conditional_labels = (
             self.find_joint_marginal(marginal_variables, conditional_variables)
         ) 
 	marginal_conditional = self.marginalize(conditional_labels,
                                                 joint_distribution)
-
+        
+        print("done finding joint and marginal")
 	conditional_distribution = np.copy(joint_distribution) 
 	it = np.nditer(joint_distribution, flags=['multi_index'])
 	while not it.finished:
