@@ -203,18 +203,16 @@ class ProbabilityArray():
         conditional_labels: list of integers
             The variables that are conditioned on
 	"""
-        print("first finding the joint marginal")
         joint_distribution, marginal_labels, conditional_labels = (
             self.find_joint_marginal(marginal_variables, conditional_variables)
         ) 
 	marginal_conditional = self.marginalize(conditional_labels,
                                                 joint_distribution)
-        
-        print("done finding joint and marginal")
 	conditional_distribution = np.copy(joint_distribution) 
 	it = np.nditer(joint_distribution, flags=['multi_index'])
 	while not it.finished:
             if it.value == 0:
+                it.iternext()
                 continue
             conditional_arguments = tuple(
                 [it.multi_index[i] for i in conditional_labels]
@@ -279,6 +277,32 @@ def compute_joint(marginal, conditional, conditional_labels):
                         conditional_labels)
     return joint 
 
+def compute_joint_from_independent_marginals(marginal1, marginal2, marginal_labels):
+    """
+    Compute the joint using the marginals assuming independendence
+    
+    Parameters:
+    ----------
+    marginal1: a numpy array
+        Representing an M-dimensional probability distribution
+    marginal2: a numpy array
+        Representing a probability distribution, the order of the variables
+        should be in the same order as in the final joint
+    marginal_labels: a sorted (from small to big) list of integers
+        Representing on which axis the variables of marginal2 should be
+        placed in the joint
+
+    Returns: the joint distribution
+
+    """
+    outer_product = np.outer(marginal1, marginal2)
+    joint = np.reshape(outer_product, marginal1.shape+marginal2.shape)
+    for count, marginal_label in enumerate(marginal_labels):
+        joint = np.rollaxis(joint, 
+                            len(joint.shape)-len(marginal2.shape)+count,
+                            marginal_label)
+
+    return joint
 
 class ProbabilityDict():
     """
