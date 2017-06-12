@@ -18,7 +18,11 @@ def nudge(distribution, nudge_size):
     nudge_size:  a positive number
         The size of the nudge
     
-    Returns: the nudged distribution
+    Returns: nudged_distribution, nudged_states
+    -------
+    nudged_distribution: a numpy array
+    nudges_states: a numpy array
+        The two states that are nudged
 
     """
     nudged_states = np.random.choice(distribution.shape[0],
@@ -31,7 +35,7 @@ def nudge(distribution, nudge_size):
     nudged_distribution = np.copy(distribution)
     nudged_distribution[nudged_states[0]] += nudge_size
     nudged_distribution[nudged_states[1]] -= nudge_size
-    return nudged_distribution
+    return nudged_distribution, nudged_states
 
 def effect_of_nudge_1d(distribution, nudge_size):
     """
