@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.stats import entropy
+import itertools
 
 from jointpdf.jointpdf import JointProbabilityMatrix
 from jointpdf.jointpdf import FullNestedArrayOfProbabilities
@@ -66,4 +67,34 @@ def effect_of_nudge_1d(distribution, nudge_size):
     kl_function = entropy(marginal_function_old, marginal_function_new) 
     return kl_variable, kl_function
 
+def select_random_states(statespace, number_of_samples):
+    """
+    select randomly the number of samples from the statespace
 
+    Parameters:
+    ----------
+    statespace: an iterable of integers
+        Every integer represents the number of states of the variables
+        with that index.
+    number_of_samples: integer
+
+    Returns: states
+    -------
+    states: a list of lists
+        Every list represents one state
+
+    """
+    states = []
+    for i in range(number_of_samples):
+        state = []
+        for number_of_states in statespace:
+            state.append(np.random.randint(number_of_states))
+
+        states.append(state)
+
+    return states
+
+
+
+
+        
