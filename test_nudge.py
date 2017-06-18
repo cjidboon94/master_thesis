@@ -27,3 +27,9 @@ class TestNudge(unittest.TestCase):
 
         self.assertTrue(np.all((sum_nudged_distribution/1000)-distribution < 0.001))
 
+    def test1_select_random_states(self):
+        distribution = np.arange(40).reshape((4, 5, 2))
+        states = nudge.select_random_states(distribution.shape, 1000)
+        self.assertEqual(1000, len(states))
+        #print(abs(np.mean([distribution[tuple(state)] for state in states])-19.5))
+        self.assertTrue(abs(np.mean([distribution[tuple(state)] for state in states])-19.5) < 1)
