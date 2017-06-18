@@ -150,7 +150,9 @@ class ProbabilityArray():
 
         """
         if np.absolute(np.sum(probability_distribution)-1) > 10**-9:
-            raise ValueError("probability distribution should sum to 1")
+            raise ValueError("probability distribution sums to {}".format(
+                np.sum(probability_distribution)
+            ))
         if np.any(probability_distribution < 0):
             raise ValueError("some probability is smaller than 0") 
         self.probability_distribution = probability_distribution
@@ -167,7 +169,8 @@ class ProbabilityArray():
 
         Returns:
         -------
-        A numpy array with as many axis as there were variables
+        A numpy array with as many axis as there were variables the
+        variables have the same order as in the joint
 
         """
         if distribution is None:

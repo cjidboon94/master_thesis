@@ -113,7 +113,7 @@ def nudge_distribution_local_non_causal(joint, nudge_label, nudge_size, number_o
     """
     nudged_joint = np.copy(joint)
     nudged_joint = nudged_joint.swapaxes(nudge_label, len(joint.shape)-1)
-    nudge_states = nudge.select_random_states(nudged_joint.shape[:-1], number_of_nudges) 
+    nudge_states = select_random_states(nudged_joint.shape[:-1], number_of_nudges) 
     
     nudged_states_marginal = np.random.choice(joint.shape[nudge_label], 2, replace=False)
     nudge_state_plus, nudge_state_minus = nudged_states_marginal[0], nudged_states_marginal[1]   
@@ -156,3 +156,19 @@ def impact_nudge_causal_output(distribution, function_indices, new_input_distrib
     kl_divergence = entropy(marginal_output_old, marginal_output_new) 
     return kl_divergence
         
+def mutate_distribution(distribution, output_label, amount_of_mutations):
+    """
+    Mutate the joint distribution while keeping the marginals of the input
+    and output constant
+
+    """
+    mutated_distribution = np.copy(distribution)
+    np.moveaxis(output_label, len(distribution.shape)-1)
+    states = select_random_states(distribution.shape[:-1], amount_of_mutations)
+    plus = list(range(amount_of_mutations))
+    minus = list(range(amount_of_mutations))
+    mutations = np.zeros((mutations, 3))
+    for i in range(amount_of_mutations):
+        pass
+
+    np.moveaxis(output_label, len(distribution.shape)-1)
