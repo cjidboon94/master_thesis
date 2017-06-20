@@ -223,27 +223,20 @@ def mutate_distribution(distribution, output_label, amount_of_mutations, nudge_s
         probability_mass_change[mutation_states[i, 0]] += performed_nudge_size
         probability_mass_change[mutation_states[i, 1]] -= performed_nudge_size
 
-    #print(probability_mass_change)
     if abs(np.sum(probability_mass_change.values())) > 10**-6:
         raise ValueError("changes do not cancel!")
 
     variable_list = [item[0] for item in 
                      sorted(probability_mass_change.items(), key=lambda x: x[1])]
 
-    #print("performed initial nudge")
     plus_state = np.zeros(number_of_variables, np.int32)
     minus_state = np.zeros(number_of_variables, np.int32)
     count = 0 
     while variable_list != [] and count<100:
         count += 1
-        #print(variable_list)
-        #print("the probability mass change is: {}".format(probability_mass_change))
-        
         variable_items = [(k, v) for k, v in probability_mass_change.items() 
                           if k in variable_list]
-        #print(variable_items)
         minimum_index, _ = min(variable_items, key=lambda x: x[1])
-        #print(minimum_index)
         variable_list.remove(minimum_index)
         variable = minimum_index
         plus_state[-1] = variable
@@ -274,3 +267,6 @@ def mutate_distribution(distribution, output_label, amount_of_mutations, nudge_s
                                        len(distribution.shape)-1)
 
     return mutated_distribution
+
+def produce_distribution_with_entropy(number_of_variables, number_of_states, entropy):
+    pass
