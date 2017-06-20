@@ -2,10 +2,27 @@ import unittest
 import numpy as np
 
 import nudge
+from probability_distributions import ProbabilityArray
 
 class TestNudge(unittest.TestCase):
     def setUp(self):
-        pass
+        self.distribution = np.array(
+            [
+                [
+                    [0.1, 0.03, 0.05, 0.02],
+                    [0.03, 0.001, 0.04, 0.009]
+                ],
+                [
+                    [0.005, 0.005, 0, 0.1],
+                    [0.2, 0.03, 0.03, 0.03]
+                ],
+                [
+                    [0.007, 0.01, 0.1, 0.05],
+                    [0.003, 0.02, 0.11, 0.02]
+                ]
+            ]
+        )
+        self.probability_array = ProbabilityArray(self.distribution) 
 
     def test1_nudge(self):
 	distribution = np.array([0.001, 0.001, 0.003, 0.995])
@@ -33,3 +50,42 @@ class TestNudge(unittest.TestCase):
         self.assertEqual(1000, len(states))
         #print(abs(np.mean([distribution[tuple(state)] for state in states])-19.5))
         self.assertTrue(abs(np.mean([distribution[tuple(state)] for state in states])-19.5) < 1)
+
+    def test1_perform_nudge(self):
+        arr = np.array(
+            [
+                [0.2, 0.1],
+                [0.3, 0.4]
+            ]
+        )
+        out = nudge.perform_nudge(arr, tuple([0, 0]), tuple([1, 0]), 0.01)
+        self.assertEqual(out, 0.01)
+        self.assertTrue(np.allclose(arr, np.array([[0.19, 0.1], [0.31, 0.4]])))
+
+    def test2_perform_nudge(self):
+        arr = np.array(
+            [
+                [0.01, 0.29],
+                [0.3, 0.4]
+            ]
+        )
+        out = nudge.perform_nudge(arr, tuple([0, 0]), tuple([1, 0]), 0.02)
+        self.assertEqual(out, 0.01)
+        self.assertTrue(np.allclose(arr, np.array([[0, 0.29], [0.31, 0.4]])))
+
+    def test1_mutate_distribution(self):
+        out = nudge.mutate_distribution(self.distribution, 0, 6, 0.002)
+        self.assertEqual(out.shape, (3,2,4))
+        marginal_input = ProbabilityArray(out).marginalize(set([1, 2]))
+        marginal_output = ProbabilityArray(out).marginalize(set([0]))
+        expected_marginal_input = self.probability_array.marginalize(set([1, 2]))
+        expected_marginal_output = self.probability_array.marginalize(set([0]))
+        self.assertTrue(np.allclose(marginal_input, expected_marginal_input))
+
+        print("back in test class")
+        print(marginal_output)
+        print(expected_marginal_output)
+        self.assertTrue(np.allclose(marginal_output, expected_marginal_output))
+
+
+

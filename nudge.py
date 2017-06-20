@@ -174,9 +174,14 @@ def perform_nudge(distribution, minus_state, plus_state, proposed_nudge):
     """
     plus_probability = distribution[plus_state]
     minus_probability = distribution[minus_state]
+    #print("in perform_nudge")
+    #print("minus: {}, plus: {}".format(plus_probability, minus_probability))
+    #print("proposed_nudge {}".format(proposed_nudge))
     nudge_size = min(minus_probability, 1-plus_probability, proposed_nudge)
     distribution[plus_state] += nudge_size
     distribution[minus_state] -= nudge_size 
+    #print("nudge {}".format(nudge_size))
+    #print("out perform nudge")
     return nudge_size
 
 def mutate_distribution(distribution, output_label, amount_of_mutations, nudge_size):
@@ -212,39 +217,47 @@ def mutate_distribution(distribution, output_label, amount_of_mutations, nudge_s
 
     probability_mass_change = {k:0 for k in range(mutated_distribution.shape[-1])} 
     for i in range(amount_of_mutations):
-        proposed_nudge = max(np.random.normal(nudge_size, 0.5*nudge_size), 0)
-        nudge_size = perform_nudge(mutated_distribution, tuple(minus_states[i]),
-                                   tuple(plus_states[i]), proposed_nudge)
-        probability_mass_change[mutation_states[i, 0]] += nudge_size
-        probability_mass_change[mutation_states[i, 1]] -= nudge_size
+        proposed_nudge = max(np.random.normal(nudge_size, 0.2*nudge_size), 0)
+        performed_nudge_size = perform_nudge(mutated_distribution, tuple(minus_states[i]),
+                                             tuple(plus_states[i]), proposed_nudge)
+        probability_mass_change[mutation_states[i, 0]] += performed_nudge_size
+        probability_mass_change[mutation_states[i, 1]] -= performed_nudge_size
 
-    print(probability_mass_change)
+    #print(probability_mass_change)
     if abs(np.sum(probability_mass_change.values())) > 10**-6:
         raise ValueError("changes do not cancel!")
 
     variable_list = [item[0] for item in 
                      sorted(probability_mass_change.items(), key=lambda x: x[1])]
 
-    print(variable_list)
+    print("performed initial nudge")
     plus_state = np.zeros(number_of_variables, np.int32)
     minus_state = np.zeros(number_of_variables, np.int32)
-    while variable_list != []:
-        print(ProbabilityArray(mutated_distribution).marginalize(set([number_of_variables-1])))
+    count = 0
+    while variable_list != [] and count<100:
+        count += 1
+        #print(variable_list)
+
         variable = variable_list.pop(0)
-        print("the variable is {}".format(variable))
         plus_state[-1] = variable
-        while abs(probability_mass_change[variable]) > 10**-6:
-            state = np.random.randint(amount_of_mutations)
-            plus_state[:-1], minus_state[:-1] = states[i], states[i]
-            print(plus_state)
+        count2 = 0
+        while abs(probability_mass_change[variable]) > 10**-6 and count2<100:
+            count2 += 1
+            #print(probability_mass_change)
+            state = select_random_states(mutated_distribution.shape[:-1], 1)[0] 
+            plus_state[:-1], minus_state[:-1] = state, state
             minus_state[-1] = int(np.random.choice(variable_list))
-            print(minus_state)
-            nudge_size = perform_nudge(
+            #print("the minus state is {}, prob {}".format(minus_state, mutated_distribution[tuple(minus_state)]))
+            #print("the plus state is {} prob {}".format(plus_state, mutated_distribution[tuple(plus_state)]))
+            #print("the probability mass {}".format(probability_mass_change[variable]))
+            #print("nudge size {}, proposed nudge {}".format(nudge_size, min(nudge_size, abs(probability_mass_change[variable]))))
+            performed_nudge_size = perform_nudge(
                 mutated_distribution, tuple(minus_state), tuple(plus_state),
                 min(nudge_size, abs(probability_mass_change[variable]))    
             )
-            probability_mass_change[variable] += nudge_size
-            probability_mass_change[minus_state[-1]] -= nudge_size
+            #print("the nudge size is {}".format(performed_nudge_size))
+            probability_mass_change[variable] += performed_nudge_size
+            probability_mass_change[minus_state[-1]] -= performed_nudge_size
 
     mutated_distribution = np.swapaxes(mutated_distribution, output_label, 
                                        len(distribution.shape)-1)
