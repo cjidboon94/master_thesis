@@ -226,6 +226,7 @@ def mutate_distribution(distribution, output_label, amount_of_mutations, nudge_s
     if abs(np.sum(probability_mass_change.values())) > 10**-6:
         raise ValueError("changes do not cancel!")
 
+    #print("performed initial nudge")
     variable_list = [item[0] for item in 
                      sorted(probability_mass_change.items(), key=lambda x: x[1])]
 
@@ -240,17 +241,13 @@ def mutate_distribution(distribution, output_label, amount_of_mutations, nudge_s
         variable_list.remove(minimum_index)
         variable = minimum_index
         plus_state[-1] = variable
-        
         count2 = 0
-        while abs(probability_mass_change[variable]) > 10**-6 and count2<100:
+        while abs(probability_mass_change[variable]) > 10**-6 and count2<500:
             count2 += 1
             #print(probability_mass_change)
             state = select_random_states(mutated_distribution.shape[:-1], 1)[0] 
             plus_state[:-1], minus_state[:-1] = state, state
-            if probability_mass_change[variable] < 0:
-                minus_state[-1] = int(np.random.choice(variable_list))
-            else:
-                plus_state[-1] = int(np.random.choice(variable_list))
+            minus_state[-1] = int(np.random.choice(variable_list))
             #print("the minus state is {}, prob {}".format(minus_state, mutated_distribution[tuple(minus_state)]))
             #print("the plus state is {} prob {}".format(plus_state, mutated_distribution[tuple(plus_state)]))
             #print("the probability mass {}".format(probability_mass_change[variable]))
