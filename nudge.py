@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.stats import entropy
 import itertools
+import copy
 
 from jointpdf.jointpdf import JointProbabilityMatrix
 from jointpdf.jointpdf import FullNestedArrayOfProbabilities
@@ -98,7 +99,7 @@ def nudge_distribution_local_non_causal(joint, nudge_label, nudge_size, number_o
     """
     Nudge the the variable with nudge label while keeping the 
     marginal of the other variables constant. Thus assuming that the variable
-    on which the nudge is performed does not causally impact other variables.
+    on which the nudge is performed does not causally impacting other variables.
     
     Parameters:
     ----------
@@ -174,17 +175,13 @@ def perform_nudge(distribution, minus_state, plus_state, proposed_nudge):
     """
     plus_probability = distribution[plus_state]
     minus_probability = distribution[minus_state]
-    #print("in perform_nudge")
-    #print("minus: {}, plus: {}".format(plus_probability, minus_probability))
-    #print("proposed_nudge {}".format(proposed_nudge))
     nudge_size = min(minus_probability, 1-plus_probability, proposed_nudge)
     distribution[plus_state] += nudge_size
     distribution[minus_state] -= nudge_size 
-    #print("nudge {}".format(nudge_size))
-    #print("out perform nudge")
     return nudge_size
 
-def mutate_distribution(distribution, output_label, amount_of_mutations, nudge_size):
+def mutate_distribution_with_fixed_marginals(distribution, output_label, 
+                                             amount_of_mutations, nudge_size):
     """
     Mutate the joint distribution while keeping the marginals of the input
     and output constant
@@ -205,7 +202,8 @@ def mutate_distribution(distribution, output_label, amount_of_mutations, nudge_s
     mutated_distribution = np.swapaxes(mutated_distribution, output_label, 
                                        number_of_variables-1)
     
-    states = select_random_states(mutated_distribution.shape[:-1], amount_of_mutations)
+    states = select_random_states(mutated_distribution.shape[:-1],
+                                  amount_of_mutations)
     mutation_states = np.random.randint(0, mutated_distribution.shape[-1],
                                         (amount_of_mutations, 2))
     plus_states = np.zeros((amount_of_mutations, number_of_variables), np.int32)
@@ -218,8 +216,10 @@ def mutate_distribution(distribution, output_label, amount_of_mutations, nudge_s
     probability_mass_change = {k:0 for k in range(mutated_distribution.shape[-1])} 
     for i in range(amount_of_mutations):
         proposed_nudge = max(np.random.normal(nudge_size, 0.2*nudge_size), 0)
-        performed_nudge_size = perform_nudge(mutated_distribution, tuple(minus_states[i]),
-                                             tuple(plus_states[i]), proposed_nudge)
+        performed_nudge_size = perform_nudge(
+            mutated_distribution, tuple(minus_states[i]), 
+            tuple(plus_states[i]), proposed_nudge
+        )
         probability_mass_change[mutation_states[i, 0]] += performed_nudge_size
         probability_mass_change[mutation_states[i, 1]] -= performed_nudge_size
 
@@ -232,9 +232,7 @@ def mutate_distribution(distribution, output_label, amount_of_mutations, nudge_s
 
     plus_state = np.zeros(number_of_variables, np.int32)
     minus_state = np.zeros(number_of_variables, np.int32)
-    count = 0 
-    while variable_list != [] and count<100:
-        count += 1
+    while variable_list != []:
         variable_items = [(k, v) for k, v in probability_mass_change.items() 
                           if k in variable_list]
         minimum_index, _ = min(variable_items, key=lambda x: x[1])
@@ -262,7 +260,6 @@ def mutate_distribution(distribution, output_label, amount_of_mutations, nudge_s
 
     mutated_distribution = np.swapaxes(mutated_distribution, output_label, 
                                        len(distribution.shape)-1)
-
     return mutated_distribution
 
 def produce_distribution_with_entropy(number_of_variables, number_of_states, entropy):

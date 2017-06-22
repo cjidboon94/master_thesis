@@ -22,7 +22,36 @@ class TestNudge(unittest.TestCase):
                 ]
             ]
         )
+        self.distribution2 = np.array(
+            [
+                [
+                    [
+                        [0.01, 0.03, 0.05],
+                        [0.02, 0.01, 0.005],
+                        [0.004, 0.006, 0.01],
+                    ],
+                    [
+                        [0.06, 0.01, 0.003],
+                        [0.002, 0.004, 0.001],
+                        [0.1, 0.03, 0.02],
+                    ]
+                ],
+                [
+                    [
+                        [0.02, 0.02, 0.07],
+                        [0.02, 0.005, 0.01],
+                        [0.003, 0.004, 0.003],
+                    ],
+                    [
+                        [0.13, 0.01, 0.001],
+                        [0.009, 0.01, 0.01],
+                        [0.1, 0.15, 0.05],
+                    ]
+                ]
+            ]
+        )
         self.probability_array = ProbabilityArray(self.distribution) 
+        self.probability_array2 = ProbabilityArray(self.distribution2)
 
     def test1_nudge(self):
 	distribution = np.array([0.001, 0.001, 0.003, 0.995])
@@ -73,8 +102,63 @@ class TestNudge(unittest.TestCase):
         self.assertEqual(out, 0.01)
         self.assertTrue(np.allclose(arr, np.array([[0, 0.29], [0.31, 0.4]])))
 
+    def test1_nudge_distribution_local_non_causal(self):
+        dist = np.array(
+            [
+                [
+                    [
+                        [0.01, 0.03, 0.05],
+                        [0.02, 0.01, 0.005],
+                        [0.004, 0.006, 0.01],
+                    ],
+                    [
+                        [0.06, 0.01, 0.003],
+                        [0.002, 0.004, 0.001],
+                        [0.1, 0.03, 0.02],
+                    ]
+                ],
+                [
+                    [
+                        [0.02, 0.02, 0.07],
+                        [0.02, 0.005, 0.01],
+                        [0.003, 0.004, 0.003],
+                    ],
+                    [
+                        [0.13, 0.01, 0.001],
+                        [0.009, 0.01, 0.01],
+                        [0.1, 0.15, 0.05],
+                    ]
+                ]
+            ]
+        )
+        probability_array = ProbabilityArray(dist)
+        number_of_states = reduce(lambda x,y: x*y, dist.shape)
+        out = nudge.nudge_distribution_local_non_causal(
+            dist, 0, 0.1/float(number_of_states), int(round(number_of_states/10))
+        )
+        marginal_other_out = ProbabilityArray(out).marginalize(set([1, 2, 3]))
+        marginal_nudged_out = ProbabilityArray(out).marginalize(set([0]))
+        expected_marginal_other = np.array(
+            [
+                [
+                    [0.03, 0.05, 0.12],
+                    [0.04, 0.015, 0.015],
+                    [0.007, 0.010, 0.013],
+                ],
+                [
+                    [0.19, 0.02, 0.004],
+                    [0.011, 0.014, 0.011],
+                    [0.2, 0.18, 0.07],
+                ]
+            ]
+        )
+
+        self.assertTrue(np.allclose(marginal_other_out, expected_marginal_other))
+        #expected_abs_difference_nudged = 0.01
+        #difference_nudged = marginal_nudged_out
+
     def test1_mutate_distribution(self):
-        out = nudge.mutate_distribution(self.distribution, 0, 6, 0.002)
+        out = nudge.mutate_distribution_with_fixed_marginals(self.distribution, 0, 6, 0.002)
         self.assertEqual(out.shape, (3,2,4))
         marginal_input = ProbabilityArray(out).marginalize(set([1, 2]))
         marginal_output = ProbabilityArray(out).marginalize(set([0]))
