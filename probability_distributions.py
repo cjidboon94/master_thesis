@@ -385,7 +385,8 @@ def select_parents(amount_of_parents, sorted_population, rank_probabilities):
 
 def produce_distribution_with_entropy(shape, entropy_size, number_of_trials, 
                                       population_size=10, number_of_children=20,
-                                      generational=True):
+                                      generational=False, initial_dist='peaked',
+                                      number_of_peaks=1):
     """
     Produce a distribution with a given entropy
 
@@ -396,12 +397,25 @@ def produce_distribution_with_entropy(shape, entropy_size, number_of_trials,
     number_of_trials: integer
     population_size: integer
     number_of_children: integer
+    generational: boolean
+        Whether to replace every sample in the population
     
+
     """
     total_number_of_states = reduce(lambda x,y: x*y, shape)
-    population = [compute_joint_uniform_random(shape).flatten()
-                  for i in range(population_size)]
-    
+    if initial_dist=='peaked':
+        population = []
+        for i in range(population_size):
+            sample = np.zeros(total_number_of_states)
+            peaks = np.random.randint(0, total_number_of_states, number_of_peaks)
+            peak_size = 1.0/number_of_peaks
+            for peak in peaks:
+                sample[peak] = peak_size
+            population.append(sample)
+    elif initial_dist=='random':
+        population = [compute_joint_uniform_random(shape).flatten()
+                      for i in range(population_size)]
+
     rank_scores_exponential = 1-np.exp(-1*np.arange(population_size))
     rank_exp_probabilities = rank_scores_exponential/np.sum(rank_scores_exponential)
     for i in range(number_of_trials):
