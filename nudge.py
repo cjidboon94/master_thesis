@@ -2,6 +2,7 @@ import numpy as np
 from scipy.stats import entropy
 import itertools
 import copy
+import random
 
 from jointpdf.jointpdf import JointProbabilityMatrix
 from jointpdf.jointpdf import FullNestedArrayOfProbabilities
@@ -262,5 +263,4 @@ def mutate_distribution_with_fixed_marginals(distribution, output_label,
                                        len(distribution.shape)-1)
     return mutated_distribution
 
-def produce_distribution_with_entropy(number_of_variables, number_of_states, entropy):
-    pass
+

@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
 import probability_distributions
+from scipy.stats import entropy
 from probability_distributions import ProbabilityArray
 
 
@@ -162,4 +163,17 @@ class TestProbabilityArray(unittest.TestCase):
                                                         conditional_labels)
         self.assertTrue(np.allclose(joint, self.probability_array2))
 
+
+    def test1_produce_distribution_with_entropy(self):
+        shape = tuple([3,3,3,3])
+        entropy_size = np.log2(3.0**4)/10
+        print("entropy size {}".format(entropy_size))
+        number_of_trials = 15000
+        distribution = probability_distributions.produce_distribution_with_entropy(
+            shape, entropy_size, number_of_trials, 
+            population_size=50, number_of_children=100
+        )
+        print(distribution)
+        print(np.sum(distribution))
+        print("the distribution's entropy {}".format(entropy(distribution.flatten())))
 
