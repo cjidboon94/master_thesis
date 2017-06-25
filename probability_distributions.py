@@ -383,10 +383,11 @@ def select_parents(amount_of_parents, sorted_population, rank_probabilities):
 
     return parents
 
-def produce_distribution_with_entropy(shape, entropy_size, number_of_trials, 
-                                      population_size=10, number_of_children=20,
-                                      generational=False, initial_dist='peaked',
-                                      number_of_peaks=1):
+def produce_distribution_with_entropy_evolutionary(
+        shape, entropy_size, number_of_trials, 
+        population_size=10, number_of_children=20,
+        generational=False, initial_dist='peaked', number_of_peaks=1
+        ):
     """
     Produce a distribution with a given entropy
 
@@ -399,8 +400,11 @@ def produce_distribution_with_entropy(shape, entropy_size, number_of_trials,
     number_of_children: integer
     generational: boolean
         Whether to replace every sample in the population
-    
 
+    Returns: 
+    -------
+    a numpy array representing a probability distribution with
+    a certain entropy
     """
     total_number_of_states = reduce(lambda x,y: x*y, shape)
     if initial_dist=='peaked':
@@ -450,8 +454,54 @@ def produce_distribution_with_entropy(shape, entropy_size, number_of_trials,
 
     return population[0]
 
+def generate_probability_distribution_with_certain_entropy(shape, entropy_size):
+    """
+    Generate a probability distribution  with a certain entropy
 
+    Parameters:
+    ----------
+    shape: tuple
+    entropy_size: float
 
+    Returns: a numpy array
+
+    """
+    total_number_of_states = reduce(lambda x,y: x*y, shape)
+    distribution = np.full(total_number_of_states, 1.0/total_number_of_states)
+    print(entropy(distribution))
+    while entropy(distribution) > entropy_size:
+        state1, state2 = tuple(np.random.choice(total_number_of_states, 2, False))
+        decrease_entropy(distribution, state1, state2, 10.0/total_number_of_states)
+
+    np.random.shuffle(distribution)
+    distribution = np.reshape(distribution, shape)
+    return distribution
+
+def decrease_entropy(distribution, state1, state2, max_difference):
+    """
+    Decrease the entropy of the distribution randomly
+
+    Parameters:
+    ----------
+    distribution: a 1-d numpy array 
+        Representing a probability distribution
+    state1, state2: integers in the range len(distribution)
+    
+    Returns: a boolean
+    -------
+    Whether the entropy was decreased
+
+    """
+    difference = distribution[state1]-distribution[state2]
+    if distribution[state1]==0 or distribution[state2]==0:
+        return False
+    elif difference >= 0:
+        change = np.random.uniform(0, min(max_difference, distribution[state2]))
+        distribution[state1] += change
+        distribution[state2] -= change
+        return True
+    else:
+        return decrease_entropy(distribution, state2, state1, max_difference)
 
 class ProbabilityDict():
     """

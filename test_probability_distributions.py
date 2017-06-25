@@ -167,14 +167,23 @@ class TestProbabilityArray(unittest.TestCase):
     def test1_produce_distribution_with_entropy(self):
         shape = tuple([3,3,3,3,4,4])
         entropy_size = np.log2(3.0**4 * 4**2)/2
-        print("entropy size {}".format(entropy_size))
+        #print("entropy size {}".format(entropy_size))
         number_of_trials = 1000
-        distribution = probability_distributions.produce_distribution_with_entropy(
-            shape, entropy_size, number_of_trials, 
-            population_size=50, number_of_children=100, generational=False,
-            initial_dist='peaked'
-        )
-        print(distribution)
-        print(np.sum(distribution))
-        print("the distribution's entropy {}".format(entropy(distribution.flatten())))
+        #distribution = probability_distributions.produce_distribution_with_entropy_evolutionary(
+        #    shape, entropy_size, number_of_trials, 
+        #    population_size=50, number_of_children=100, generational=False,
+        #    initial_dist='peaked'
+        #)
+        #print(distribution)
+        #print(np.sum(distribution))
+        #print("the distribution's entropy {}".format(entropy(distribution.flatten())))
+
+    def test1_generate_probability_distribution_with_certain_entropy(self):
+        shape = tuple([3,4,4,5,5,3])
+        entropy_size = np.log2(3*4*4*5*5*3)/2
+        print("the entropy size is {}".format(entropy_size))
+        out = probability_distributions.generate_probability_distribution_with_certain_entropy(
+            shape, entropy_size
+            )
+        print(entropy(out.flatten()))
 
