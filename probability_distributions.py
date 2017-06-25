@@ -468,7 +468,6 @@ def generate_probability_distribution_with_certain_entropy(shape, entropy_size):
     """
     total_number_of_states = reduce(lambda x,y: x*y, shape)
     distribution = np.full(total_number_of_states, 1.0/total_number_of_states)
-    print(entropy(distribution))
     while entropy(distribution) > entropy_size:
         state1, state2 = tuple(np.random.choice(total_number_of_states, 2, False))
         decrease_entropy(distribution, state1, state2, 10.0/total_number_of_states)
@@ -497,6 +496,9 @@ def decrease_entropy(distribution, state1, state2, max_difference):
         return False
     elif difference >= 0:
         change = np.random.uniform(0, min(max_difference, distribution[state2]))
+        if distribution[state2] < (10**(-10)):
+            change = distribution[state2]
+
         distribution[state1] += change
         distribution[state2] -= change
         return True

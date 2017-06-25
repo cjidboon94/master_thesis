@@ -185,5 +185,6 @@ class TestProbabilityArray(unittest.TestCase):
         out = probability_distributions.generate_probability_distribution_with_certain_entropy(
             shape, entropy_size
             )
+        print(out)
         print(entropy(out.flatten()))
 
