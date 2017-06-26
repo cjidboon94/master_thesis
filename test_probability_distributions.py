@@ -164,7 +164,7 @@ class TestProbabilityArray(unittest.TestCase):
         self.assertTrue(np.allclose(joint, self.probability_array2))
 
 
-    def test1_produce_distribution_with_entropy(self):
+    def test1_produce_distribution_with_entropy_evolutionary(self):
         shape = tuple([3,3,3,3,4,4])
         entropy_size = np.log2(3.0**4 * 4**2)/2
         #print("entropy size {}".format(entropy_size))
@@ -176,15 +176,22 @@ class TestProbabilityArray(unittest.TestCase):
         #)
         #print(distribution)
         #print(np.sum(distribution))
-        #print("the distribution's entropy {}".format(entropy(distribution.flatten())))
+        #print("the distribution's entropy {}".format(entropy(distribution.flatten(), base=2)))
 
     def test1_generate_probability_distribution_with_certain_entropy(self):
-        shape = tuple([3,4,4,5,5,3])
-        entropy_size = np.log2(3*4*4*5*5*3)/2
+        shape = tuple([5]*7)
+        entropy_size = np.log2(5**7 * 0.1)
         print("the entropy size is {}".format(entropy_size))
         out = probability_distributions.generate_probability_distribution_with_certain_entropy(
-            shape, entropy_size
+            shape, entropy_size, True
             )
-        print(out)
-        print(entropy(out.flatten()))
+        #print(out)
+        print(entropy_size)
+        print(entropy(out.flatten(), base=2))
 
+    def test_decrease_entropy(self):
+        a = np.array([0.1, 0.2, 0.1, 0.05, 0.01, 0.04, 0.4, 0.1])
+        initial_entropy = entropy(a, base=2)
+        out = probability_distributions.decrease_entropy(a, 1, 5, 0.02)
+        #print("decrease in entropy {}".format(out))
+        self.assertAlmostEqual(initial_entropy-entropy(a, base=2), out)

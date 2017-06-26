@@ -58,10 +58,10 @@ class JointProbabilityMatrixExtended(JointProbabilityMatrix):
         new_conditional_indices = [i for i in range(len(all_indices)) 
                                    if all_indices[i] in conditional_indices]
 
-        print("the joint")
-        print(joint_distribution)
-        print("the conditional")
-        print(marginal_conditional)
+        #print("the joint")
+        #print(joint_distribution)
+        #print("the conditional")
+        #print(marginal_conditional)
 	conditional_distribution = np.copy(joint_distribution) 
 	it = np.nditer(joint_distribution, flags=['multi_index'])
 	while not it.finished:
@@ -277,10 +277,11 @@ def compute_joint(marginal, conditional, conditional_labels):
         conditional, conditional_labels,
         range(total_variables-len(conditional_labels), total_variables, 1)
     )
-    reordered_conditional = reordered_conditional*marginal
-    joint = np.moveaxis(reordered_conditional, 
-                        range(total_variables-len(conditional_labels), total_variables, 1), 
-                        conditional_labels)
+    joint = reordered_conditional*marginal
+    joint = np.moveaxis(
+        joint, range(total_variables-len(conditional_labels), total_variables, 1), 
+        conditional_labels
+    )
     return joint 
 
 def compute_joint_uniform_random(shape):
@@ -423,7 +424,7 @@ def produce_distribution_with_entropy_evolutionary(
     rank_scores_exponential = 1-np.exp(-1*np.arange(population_size))
     rank_exp_probabilities = rank_scores_exponential/np.sum(rank_scores_exponential)
     for i in range(number_of_trials):
-        population_scores = [abs(entropy_size-entropy(dist.flatten())) 
+        population_scores = [abs(entropy_size-entropy(dist.flatten(), base=2)) 
                              for dist in population]
         sorted_population_scores = list(sorted(zip(population_scores, population), 
                                                key=lambda x:x[0]))
@@ -439,7 +440,7 @@ def produce_distribution_with_entropy_evolutionary(
         else:
             mutation_size = 0.05/total_number_of_states
         children = [mutate_distribution(parent, mutation_size) for parent in parents]
-        scores = [abs(entropy_size-entropy(dist.flatten())) for dist in children]
+        scores = [abs(entropy_size-entropy(dist.flatten(), base=2)) for dist in children]
         children_scores = list(zip(scores, children))
         if generational:
             new_population_sorted_scores = sorted(children_scores, key=lambda x: x[0])
@@ -450,11 +451,14 @@ def produce_distribution_with_entropy_evolutionary(
         population = zip(*new_population_sorted_scores)[1][:population_size]
         #print(population[0])
         if i%20==0:
-            print(entropy(population[0]), end=" ")
+            print(entropy(population[0], base=2), end=" ")
 
     return population[0]
 
-def generate_probability_distribution_with_certain_entropy(shape, entropy_size):
+def generate_probability_distribution_with_certain_entropy(
+            shape, final_entropy_size,  
+            zero_marginals_removed=False
+            ):
     """
     Generate a probability distribution  with a certain entropy
 
@@ -467,16 +471,73 @@ def generate_probability_distribution_with_certain_entropy(shape, entropy_size):
 
     """
     total_number_of_states = reduce(lambda x,y: x*y, shape)
+    max_difference = 1.0/total_number_of_states
     distribution = np.full(total_number_of_states, 1.0/total_number_of_states)
-    while entropy(distribution) > entropy_size:
-        state1, state2 = tuple(np.random.choice(total_number_of_states, 2, False))
-        decrease_entropy(distribution, state1, state2, 10.0/total_number_of_states)
+    entropy_size = entropy(distribution, base=2)
+    #print("the initial entropy is {}".format(entropy_size))
 
+    while entropy_size > final_entropy_size:
+        #print('starting again')
+        random_positions = np.random.choice(total_number_of_states, total_number_of_states*50*2)
+        for i in range(total_number_of_states*50):
+            if zero_marginals_removed: 
+                entropy_size -= decrease_entropy(
+                    distribution, random_positions[i],
+                    random_positions[i*2], max_difference, set_zero=True 
+                )
+            else:
+                entropy_size -= decrease_entropy(
+                    distribution, random_positions[i],
+                    random_positions[i*2], max_difference,  
+                )
+            if entropy_size < final_entropy_size:
+                break 
+            
     np.random.shuffle(distribution)
     distribution = np.reshape(distribution, shape)
+    if zero_marginals_removed:
+        distribution = remove_zero_marginals(distribution)
     return distribution
 
-def decrease_entropy(distribution, state1, state2, max_difference):
+def remove_zero_marginals(distribution):
+    """remove all states for which a marginal has probability zero
+    
+    Parameters:
+    ----------
+    distribution:
+
+    Returns:
+    -------
+    updated distribution (a copy of the original distribution)
+
+    """
+    new_distribution = np.copy(distribution)
+    probability_arr = ProbabilityArray(new_distribution)
+    states_to_be_removed = {} 
+    for variable in range(len(distribution.shape)):
+        marginal = probability_arr.marginalize(set([variable]))
+        zero_states = []
+        for j, state in enumerate(marginal):
+            if state == 0:
+                zero_states.append(j)
+
+        if zero_states != []:
+            states_to_be_removed[variable] = zero_states
+    
+    for variable, states in states_to_be_removed.items():
+        new_distribution = np.delete(new_distribution, states, variable)
+
+    if abs(np.sum(new_distribution)-1) > 10**(-10):
+        raise ValueError
+
+    probability_arr = ProbabilityArray(new_distribution)
+    for variable in range(len(new_distribution.shape)):
+        if np.any(probability_arr.marginalize(set([variable]))==0):
+            raise ValueError()
+
+    return new_distribution
+
+def decrease_entropy(distribution, state1, state2, max_difference, set_zero=False):
     """
     Decrease the entropy of the distribution randomly
 
@@ -486,22 +547,29 @@ def decrease_entropy(distribution, state1, state2, max_difference):
         Representing a probability distribution
     state1, state2: integers in the range len(distribution)
     
-    Returns: a boolean
+    Returns: a float
     -------
-    Whether the entropy was decreased
+    By how much the entropy was decreased
 
     """
-    difference = distribution[state1]-distribution[state2]
     if distribution[state1]==0 or distribution[state2]==0:
-        return False
-    elif difference >= 0:
+        return 0
+    elif distribution[state1] >= distribution[state2]:
+        initial_entropy = np.dot(np.log2(distribution[[state1, state2]]),
+                                 distribution[[state1, state2]])
         change = np.random.uniform(0, min(max_difference, distribution[state2]))
-        if distribution[state2] < (10**(-10)):
-            change = distribution[state2]
+        if set_zero:
+            if distribution[state2] < (10**(-10)):
+                change = distribution[state2]
 
         distribution[state1] += change
         distribution[state2] -= change
-        return True
+        if distribution[state2] != 0:
+            entropy_after = np.dot(np.log2(distribution[[state1, state2]]), 
+                                   distribution[[state1, state2]])
+        else:
+            entropy_after = np.log2(distribution[state1]) * distribution[state1]
+        return -(initial_entropy - entropy_after)
     else:
         return decrease_entropy(distribution, state2, state1, max_difference)
 
