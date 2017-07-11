@@ -157,6 +157,17 @@ class TestNudge(unittest.TestCase):
         #expected_abs_difference_nudged = 0.01
         #difference_nudged = marginal_nudged_out
 
+    def test_select_subsets(self):
+        arr = np.array([0.1, 0.05, 0.15, 0.2])
+        threshold = 0.1
+        for i in range(50):
+            out = nudge.select_subset(arr, threshold)
+            self.assertTrue(np.sum(arr[out!=0])>=threshold)
+            self.assertFalse(np.all(out==1))
+
+    def mutate_array_bigger_zero(self):
+        passgT
+
     def test1_mutate_distribution(self):
         out = nudge.mutate_distribution_with_fixed_marginals(self.distribution, 0, 6, 0.002)
         self.assertEqual(out.shape, (3,2,4))
@@ -166,9 +177,9 @@ class TestNudge(unittest.TestCase):
         expected_marginal_output = self.probability_array.marginalize(set([0]))
         self.assertTrue(np.allclose(marginal_input, expected_marginal_input))
 
-        print("back in test class")
-        print(marginal_output)
-        print(expected_marginal_output)
+        #print("back in test class")
+        #print(marginal_output)
+        #print(expected_marginal_output)
         self.assertTrue(np.allclose(marginal_output, expected_marginal_output))
 
 

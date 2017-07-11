@@ -100,7 +100,9 @@ def nudge_distribution_local_non_causal(joint, nudge_label, nudge_size, number_o
     """
     Nudge the the variable with nudge label while keeping the 
     marginal of the other variables constant. Thus assuming that the variable
-    on which the nudge is performed does not causally impacting other variables.
+    on which the nudge is performed does not causally impact the other variables.
+    Moreover, the nudge moves probability weight from one state of the marginal
+    of the nudged variable to another state of the marginal of the nudged variable.
     
     Parameters:
     ----------
@@ -128,6 +130,129 @@ def nudge_distribution_local_non_causal(joint, nudge_label, nudge_size, number_o
     
     nudged_joint = nudged_joint.swapaxes(nudge_label, len(joint.shape)-1)
     return nudged_joint
+
+def nudge_distribution_local_non_causal_multiple_variables(
+            joint, nudge_labels, nudge_size
+            ):
+    """
+    Nudge the the variable with nudge label while keeping the 
+    marginal of the other variables constant. Thus assuming that the variable
+    on which the nudge is performed does not causally impact the other variables.
+    The nudge moves weight around in a random manner. Meaning that the weight 
+    does not go from one state to another state, but rather a random 
+    perturbation vector is placed on the states, its sum being equal
+    to 0 and its absolute sum equal to 2*nudge_size
+    
+    Parameters:
+    ----------
+    joint: a numpy array
+        Representing a discrete probability distribution
+    nudge_labels: a list of integers
+    nudge_size: a (small) number
+    
+    Returns: a numpy array, representing the nudged probability distribution
+    
+    """
+    nudged_joint = np.copy(joint)
+    nudged_indices = tuple(range(len(joint.shape)-len(nudge_labels), len(joint.shape), 1))
+    nudged_joint = nudged_joint.moveaxis(nudge_labels, nudged_indices)
+    nudged_size_per_state = np.sum(nudged_joint, axis=nudged_indices)*nudge_size
+    it = np.nditer(nudged_size_per_state, flags=['multi_index'])
+    while not it.finished:
+        if it.value == 0:
+            it.iternext()
+            continue
+
+        shape = nudged_joint[it.multi_index].shape
+        flattened_dist = np.flatten(nudged_joint[it.multi_index])
+        nudged_state = mutate_array_bigger_zero(
+            nudged_joint[it.multi_index], it.value
+        )
+        nudged_joint[it.multi_index] = np.reshape(nudged_state, shape) 
+        it.iternext()
+
+    nudged_joint = nudged_joint.moveaxis(nudge_labels, nudged_indices)
+    return nudged_joint
+
+def mutate_array_bigger_zero(arr, nudge_size, option):
+    """ 
+    Mutate the arr under the constraint that every entry must be 
+    bigger or equal to zero. The total plus and minus change should 
+    both be equal to nudge size
+
+    Parameters:
+    ----------
+    arr: a 1-d nd array
+    nudge_size: A (small) number
+    option: string in set: {proportional, random} 
+        how to create the vector to perform the nudge. With proportional
+        the plus and minus states are chosen randomly (within the 
+        constraint that the minus states must have weight bigger than
+        nudge size). Then the nudge size in the plus and minus states are 
+        totally proportional to the old probability masses in those states.
+        For random the weights for the minus states are selected using the 
+        Dirichlet distribution, if this pushes the state under zero than, 
+        that part of the nudge is redistributed among the other states (
+        again using Dirichlet)
+
+    Returns: a 1-d numpy array
+
+    """
+    nudged_array = np.copy(arr)
+    minus_states = select_subset(nudged_array)
+    plus_states = np.array([1 if i==0 else 0 for i in minus_states])
+    if option == 'proportional': 
+        minus_part = nudged_array[plus_states]
+        minus_nudge = (minus_part/np.sum(minus_part)) * it.value
+        plus_part = nudged_array[minus_states]
+        plus_nudge = (plus_part/np.sum(plus_part)) * it.value
+    elif option == 'random':
+        proposed_minus_nudge = np.random.dirichlet([nudge_size]*minus_states.shape[0])
+        actual_minus_nudge = np.minimum(nudged_array[plus_states], proposed_minus_nudge)
+        difference = abs(np.sum(actual_minus_nudge)-nudge_size)
+        while difference > 10**(-8):
+            mask = nudged_array[minus_states]!=actual_minus_nudge
+            proposal_redistribution = np.random.dirichlet([difference]*np.count_nonzero(mask))
+            proposal_minus_nudge[mask] = actual_minus_nudge[mask] + proposal_redistribution
+            actual_minus_nudge = np.minimum(nudged_array[plus_states], proposed_minus_nudge)
+            difference = abs(np.sum(actual_minus_nudge)-nudge_size)
+
+        minus_nudge = actual_minus_nudge
+        plus_nudge = np.random.dirichlet([nudge_size]*plus_states.shape[0])
+
+    nudged_array[minus_states] = nudged_array[minus_states] - minus_nudge
+    nudged_array[plus_states] = nudged_array[plus_states] + plus_nudge 
+    return nudged_array
+
+def select_subset(arr, threshold):
+    """
+    Select a subset of the arr (randomly) which is at least bigger than
+    threshold
+    
+    Parameters:
+    ----------
+    arr: a 1-d numpy array
+        All entries should be greater or equal to zero
+
+    Returns: a 1-d numpy filled with zeros and ones
+
+    """
+    minus_states = np.random.randint(0, 2, arr.shape[0])
+    attempt_count = 0
+    while (np.sum(arr[minus_states!=0])<threshold or np.all(minus_states==1)) and attempt_count<20:
+        minus_states = np.random.randint(0, 2, arr.shape[0])
+        attempt_count += 1
+
+    if attempt_count > 19:
+        print("could not find satisfying minus state randomly")
+        minus_states = np.ones(arr.shape[0])
+        indices = list(range(arr.shape[0]))
+        np.random.shuffle(indices)
+        for index in indices:
+            if arr[minus_states]-arr[index] > threshold:
+                minus_states[selected] = 0
+
+    return minus_states
 
 def impact_nudge_causal_output(distribution, function_indices, new_input_distribution):
     """
