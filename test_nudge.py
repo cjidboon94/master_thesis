@@ -184,7 +184,7 @@ class TestNudge(unittest.TestCase):
             self.assertAlmostEqual(np.sum(out), np.sum(arr))
             self.assertAlmostEqual(np.sum(np.absolute(out-arr)), 2*nudge_size)
 
-    def test_nudge_distribution_local_non_causal_multiple_variables(self):
+    def test_nudge_distribution_non_local_non_causal(self):
         dist = np.array(
             [
                 [
@@ -216,7 +216,7 @@ class TestNudge(unittest.TestCase):
         dist_copy = np.copy(dist)
         nudge_labels = [0, 3]
         nudge_size = 0.01
-        out = nudge.nudge_distribution_local_non_causal_multiple_variables(
+        out = nudge.nudge_distribution_non_local_non_causal(
             dist, nudge_labels, nudge_size, "random"
         )
         self.assertEqual(out.shape, dist.shape)
@@ -225,6 +225,16 @@ class TestNudge(unittest.TestCase):
         self.assertTrue(np.allclose(out_arr.marginalize(set([1, 2])), dist_arr.marginalize(set([1, 2]))))
         self.assertTrue(np.all(dist==dist_copy))
         self.assertAlmostEqual(np.sum(np.absolute(out-dist)), 2*nudge_size)
+
+    def test2_nudge_distribution_non_local_non_causal(self):
+        dist = np.random.random((4,4))
+        dist_copy = np.copy(dist)
+        #print(dist.shape)
+        nudge_labels = [0, 1]
+        nudge_size = 0.01
+        out = nudge.nudge_distribution_non_local_non_causal(
+            dist, nudge_labels, nudge_size, "random"
+        )
 
     def test1_mutate_distribution(self):
         print("hello world")

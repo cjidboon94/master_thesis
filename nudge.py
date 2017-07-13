@@ -131,7 +131,7 @@ def nudge_distribution_local_non_causal(joint, nudge_label, nudge_size, number_o
     nudged_joint = nudged_joint.swapaxes(nudge_label, len(joint.shape)-1)
     return nudged_joint
 
-def nudge_distribution_local_non_causal_multiple_variables(
+def nudge_distribution_non_local_non_causal(
             joint, nudge_labels, nudge_size, nudge_option='random'
             ):
     """
@@ -219,7 +219,7 @@ def mutate_array_bigger_zero(arr, nudge_size, option):
         minus_nudge = np.minimum(nudged_array[minus_mask], minus_nudge)
         difference = abs(np.sum(minus_nudge)-nudge_size)
         count = 0
-        while difference > 10**(-8) and count<10:
+        while difference > 10**(-10) and count<10:
             count += 1
             number_of_free_states = minus_nudge[nudged_array[minus_mask]!=minus_nudge].shape[0]
             redistribute = difference * np.random.dirichlet([1]*number_of_free_states)
