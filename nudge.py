@@ -132,7 +132,7 @@ def nudge_distribution_local_non_causal(joint, nudge_label, nudge_size, number_o
     return nudged_joint
 
 def nudge_distribution_local_non_causal_multiple_variables(
-            joint, nudge_labels, nudge_size
+            joint, nudge_labels, nudge_size, nudge_option='random'
             ):
     """
     Nudge the the variable with nudge label while keeping the 
@@ -149,13 +149,15 @@ def nudge_distribution_local_non_causal_multiple_variables(
         Representing a discrete probability distribution
     nudge_labels: a list of integers
     nudge_size: a (small) number
+    nudge_option: string in set {random, proportional}
+        see mutate_array_bigger_zero option docs
     
     Returns: a numpy array, representing the nudged probability distribution
     
     """
     nudged_joint = np.copy(joint)
     nudged_indices = tuple(range(len(joint.shape)-len(nudge_labels), len(joint.shape), 1))
-    nudged_joint = nudged_joint.moveaxis(nudge_labels, nudged_indices)
+    nudged_joint = np.moveaxis(nudged_joint, nudge_labels, nudged_indices)
     nudged_size_per_state = np.sum(nudged_joint, axis=nudged_indices)*nudge_size
     it = np.nditer(nudged_size_per_state, flags=['multi_index'])
     while not it.finished:
@@ -163,15 +165,15 @@ def nudge_distribution_local_non_causal_multiple_variables(
             it.iternext()
             continue
 
-        shape = nudged_joint[it.multi_index].shape
-        flattened_dist = np.flatten(nudged_joint[it.multi_index])
-        nudged_state = mutate_array_bigger_zero(
-            nudged_joint[it.multi_index], it.value
+        flattened_dist = nudged_joint[it.multi_index].flatten()
+        nudged_state = np.reshape(
+            mutate_array_bigger_zero(flattened_dist, it.value, nudge_option),
+            nudged_joint[it.multi_index].shape
         )
-        nudged_joint[it.multi_index] = np.reshape(nudged_state, shape) 
+        nudged_joint[it.multi_index] = nudged_state 
         it.iternext()
 
-    nudged_joint = nudged_joint.moveaxis(nudge_labels, nudged_indices)
+    nudged_joint = np.moveaxis(nudged_joint, nudged_indices, nudge_labels)
     return nudged_joint
 
 def mutate_array_bigger_zero(arr, nudge_size, option):
@@ -202,28 +204,33 @@ def mutate_array_bigger_zero(arr, nudge_size, option):
     minus_states = select_subset(nudged_array, nudge_size)
     minus_mask = minus_states==1
     plus_mask = minus_states==0
+    if np.sum(nudged_array[minus_mask]) < nudge_size:
+        raise ValueError("chosen minus states wrongly")
+
     if option == 'proportional': 
         minus_part = nudged_array[minus_mask]
-        minus_nudge = (minus_part/np.sum(minus_part)) * it.value
+        minus_nudge = (minus_part/np.sum(minus_part)) * nudge_size 
         plus_part = nudged_array[plus_mask]
-        plus_nudge = (plus_part/np.sum(plus_part)) * it.value
+        plus_nudge = (plus_part/np.sum(plus_part)) * nudge_size 
     elif option == 'random':
         minus_nudge = nudge_size * np.random.dirichlet(
             [1]*np.count_nonzero(minus_states)
         )
-        if abs(np.sum(minus_nudge)-nudge_size)> 10**(-8):
-            raise ValueError("Dirichlet goes wrong")
-
         minus_nudge = np.minimum(nudged_array[minus_mask], minus_nudge)
         difference = abs(np.sum(minus_nudge)-nudge_size)
-        while difference > 10**(-8):
-            print("in the while {}".format(difference))
+        count = 0
+        while difference > 10**(-8) and count<10:
+            count += 1
             number_of_free_states = minus_nudge[nudged_array[minus_mask]!=minus_nudge].shape[0]
             redistribute = difference * np.random.dirichlet([1]*number_of_free_states)
             minus_nudge[nudged_array[minus_mask]!=minus_nudge] += redistribute
             minus_nudge = np.minimum(nudged_array[minus_mask], minus_nudge)
             difference = abs(np.sum(minus_nudge)-nudge_size)
- 
+        if count == 10:
+            print("couldnt find nudge totally randomly, now proportional")
+            free_space = nudged_array[minus_mask] - minus_nudge
+            minus_nudge += (free_space/np.sum(free_space))*difference
+
         if abs(np.sum(minus_nudge)-nudge_size)> 10**(-8):
             raise ValueError("minus nudge not big enough")       
         minus_nudge = minus_nudge

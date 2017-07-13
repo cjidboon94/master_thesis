@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 
 import nudge
+import probability_distributions
 from probability_distributions import ProbabilityArray
 
 class TestNudge(unittest.TestCase):
@@ -165,13 +166,65 @@ class TestNudge(unittest.TestCase):
             self.assertTrue(np.sum(arr[out!=0])>=threshold)
             self.assertFalse(np.all(out==1))
 
-    def test_mutate_array_bigger_zero(self):
+    def test_random_mutate_array_bigger_zero(self):
         arr = np.array([0.1, 0.05, 0.15, 0.2, 0.01])
         nudge_size = 0.1
-        out = nudge.mutate_array_bigger_zero(arr, nudge_size, 'random')
-        self.assertTrue(np.all(arr==np.array([0.1, 0.05, 0.15, 0.2, 0.01])))
-        self.assertEqual(np.sum(out), np.sum(arr))
-        self.assertAlmostEqual(np.sum(np.absolute(out-arr)), 2*nudge_size)
+        for i in range(10):
+            out = nudge.mutate_array_bigger_zero(arr, nudge_size, 'random')
+            self.assertTrue(np.all(arr==np.array([0.1, 0.05, 0.15, 0.2, 0.01])))
+            self.assertAlmostEqual(np.sum(out), np.sum(arr))
+            self.assertAlmostEqual(np.sum(np.absolute(out-arr)), 2*nudge_size)
+
+    def test_proportional_mutate_array_bigger_zero(self):
+        arr = np.array([0.1, 0.05, 0.15, 0.2, 0.01])
+        nudge_size = 0.1
+        for i in range(10):
+            out = nudge.mutate_array_bigger_zero(arr, nudge_size, 'proportional')
+            self.assertTrue(np.all(arr==np.array([0.1, 0.05, 0.15, 0.2, 0.01])))
+            self.assertAlmostEqual(np.sum(out), np.sum(arr))
+            self.assertAlmostEqual(np.sum(np.absolute(out-arr)), 2*nudge_size)
+
+    def test_nudge_distribution_local_non_causal_multiple_variables(self):
+        dist = np.array(
+            [
+                [
+                    [
+                        [0.01, 0.03, 0.05],
+                        [0.02, 0.01, 0.005],
+                        [0.004, 0.006, 0.01],
+                    ],
+                    [
+                        [0.06, 0.01, 0.003],
+                        [0.002, 0.004, 0.001],
+                        [0.1, 0.03, 0.02],
+                    ]
+                ],
+                [
+                    [
+                        [0.02, 0.02, 0.07],
+                        [0.02, 0.005, 0.01],
+                        [0.003, 0.004, 0.003],
+                    ],
+                    [
+                        [0.13, 0.01, 0.001],
+                        [0.009, 0.01, 0.01],
+                        [0.1, 0.15, 0.05],
+                    ]
+                ]
+            ]
+        )
+        dist_copy = np.copy(dist)
+        nudge_labels = [0, 3]
+        nudge_size = 0.01
+        out = nudge.nudge_distribution_local_non_causal_multiple_variables(
+            dist, nudge_labels, nudge_size, "random"
+        )
+        self.assertEqual(out.shape, dist.shape)
+        out_arr = ProbabilityArray(out)
+        dist_arr = ProbabilityArray(dist)
+        self.assertTrue(np.allclose(out_arr.marginalize(set([1, 2])), dist_arr.marginalize(set([1, 2]))))
+        self.assertTrue(np.all(dist==dist_copy))
+        self.assertAlmostEqual(np.sum(np.absolute(out-dist)), 2*nudge_size)
 
     def test1_mutate_distribution(self):
         print("hello world")
