@@ -165,10 +165,16 @@ class TestNudge(unittest.TestCase):
             self.assertTrue(np.sum(arr[out!=0])>=threshold)
             self.assertFalse(np.all(out==1))
 
-    def mutate_array_bigger_zero(self):
-        passgT
+    def test_mutate_array_bigger_zero(self):
+        arr = np.array([0.1, 0.05, 0.15, 0.2, 0.01])
+        nudge_size = 0.1
+        out = nudge.mutate_array_bigger_zero(arr, nudge_size, 'random')
+        self.assertTrue(np.all(arr==np.array([0.1, 0.05, 0.15, 0.2, 0.01])))
+        self.assertEqual(np.sum(out), np.sum(arr))
+        self.assertAlmostEqual(np.sum(np.absolute(out-arr)), 2*nudge_size)
 
     def test1_mutate_distribution(self):
+        print("hello world")
         out = nudge.mutate_distribution_with_fixed_marginals(self.distribution, 0, 6, 0.002)
         self.assertEqual(out.shape, (3,2,4))
         marginal_input = ProbabilityArray(out).marginalize(set([1, 2]))

@@ -199,29 +199,40 @@ def mutate_array_bigger_zero(arr, nudge_size, option):
 
     """
     nudged_array = np.copy(arr)
-    minus_states = select_subset(nudged_array)
-    plus_states = np.array([1 if i==0 else 0 for i in minus_states])
+    minus_states = select_subset(nudged_array, nudge_size)
+    minus_mask = minus_states==1
+    plus_mask = minus_states==0
     if option == 'proportional': 
-        minus_part = nudged_array[plus_states]
+        minus_part = nudged_array[minus_mask]
         minus_nudge = (minus_part/np.sum(minus_part)) * it.value
-        plus_part = nudged_array[minus_states]
+        plus_part = nudged_array[plus_mask]
         plus_nudge = (plus_part/np.sum(plus_part)) * it.value
     elif option == 'random':
-        proposed_minus_nudge = np.random.dirichlet([nudge_size]*minus_states.shape[0])
-        actual_minus_nudge = np.minimum(nudged_array[plus_states], proposed_minus_nudge)
-        difference = abs(np.sum(actual_minus_nudge)-nudge_size)
+        minus_nudge = nudge_size * np.random.dirichlet(
+            [1]*np.count_nonzero(minus_states)
+        )
+        if abs(np.sum(minus_nudge)-nudge_size)> 10**(-8):
+            raise ValueError("Dirichlet goes wrong")
+
+        minus_nudge = np.minimum(nudged_array[minus_mask], minus_nudge)
+        difference = abs(np.sum(minus_nudge)-nudge_size)
         while difference > 10**(-8):
-            mask = nudged_array[minus_states]!=actual_minus_nudge
-            proposal_redistribution = np.random.dirichlet([difference]*np.count_nonzero(mask))
-            proposal_minus_nudge[mask] = actual_minus_nudge[mask] + proposal_redistribution
-            actual_minus_nudge = np.minimum(nudged_array[plus_states], proposed_minus_nudge)
-            difference = abs(np.sum(actual_minus_nudge)-nudge_size)
+            print("in the while {}".format(difference))
+            number_of_free_states = minus_nudge[nudged_array[minus_mask]!=minus_nudge].shape[0]
+            redistribute = difference * np.random.dirichlet([1]*number_of_free_states)
+            minus_nudge[nudged_array[minus_mask]!=minus_nudge] += redistribute
+            minus_nudge = np.minimum(nudged_array[minus_mask], minus_nudge)
+            difference = abs(np.sum(minus_nudge)-nudge_size)
+ 
+        if abs(np.sum(minus_nudge)-nudge_size)> 10**(-8):
+            raise ValueError("minus nudge not big enough")       
+        minus_nudge = minus_nudge
+        plus_nudge = nudge_size * np.random.dirichlet(
+            [1]*(minus_states.shape[0]-np.count_nonzero(minus_states))
+        )
 
-        minus_nudge = actual_minus_nudge
-        plus_nudge = np.random.dirichlet([nudge_size]*plus_states.shape[0])
-
-    nudged_array[minus_states] = nudged_array[minus_states] - minus_nudge
-    nudged_array[plus_states] = nudged_array[plus_states] + plus_nudge 
+    nudged_array[minus_mask] = nudged_array[minus_mask] - minus_nudge
+    nudged_array[plus_mask] = nudged_array[plus_mask] + plus_nudge 
     return nudged_array
 
 def select_subset(arr, threshold):
