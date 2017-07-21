@@ -337,3 +337,35 @@ class TestNudge(unittest.TestCase):
         nudge_size = 0.2
         out_max_nudge, out_max_impact = nudge.find_max_impact_global_nudge(input_arr, cond_output, nudge_size)
         #print(out_max_nudge, out_max_impact)
+
+    def test2_find_max_impact_global_nudge(self):
+        input_arr = np.array(
+            [
+                [0.1, 0.15, 0.05],
+                [0.2, 0.1, 0.15],
+                [0.1, 0.1, 0.05],
+            ]
+        )
+        cond_output = np.array(
+            [
+                [
+                    [0.1, 0.3, 0.3, 0.3],
+                    [0.1, 0.0, 0.5, 0.4],
+                    [0.4, 0.1, 0.2, 0.3]
+                ],
+                [
+                    [0.4, 0.3, 0.2, 0.1],
+                    [0.2, 0.25, 0.25, 0.3],
+                    [0.45, 0.15, 0.25, 0.15]
+                ],
+                [
+                    [0.1, 0.2, 0.25, 0.45],
+                    [0.15, 0.15, 0.4, 0.3],
+                    [0.1, 0.3, 0.3, 0.3]
+                ]
+            ]
+        )
+        nudge_size = 0.3
+        out_max_nudge, out_max_impact = nudge.find_max_impact_global_nudge(input_arr, cond_output, nudge_size)
+        #print(out_max_nudge, out_max_impact)
+

@@ -270,7 +270,7 @@ def find_max_impact_global_nudge(input_dist, cond_output, nudge_size):
     max_impact = 0
     max_nudge = []
     for output_nudge_state in itertools.product([-1, 1], repeat=cond_output.shape[-1]):
-        if all([state==0 for state in output_nudge_state]) or all([state==1 for state in output_nudge_state]):
+        if all([state==-1 for state in output_nudge_state]) or all([state==1 for state in output_nudge_state]):
             continue
         
         perform_nudge, nudge_impact = find_max_impact_nudge_to_output_state(
@@ -311,6 +311,7 @@ def find_max_impact_nudge_to_output_state(cond_output, input_arr, nudge_size,
         preferentiable output 
 
     """
+    print("the output state is {}".format(output_state))
     allignment = cond_output.flatten() * np.array(output_state*input_arr.shape[0])
     allignment_scores = np.sum(
         np.reshape(allignment, (input_arr.shape[0], len(output_state))),
@@ -328,6 +329,10 @@ def find_max_impact_nudge_to_output_state(cond_output, input_arr, nudge_size,
     while minus_weight < nudge_size and count < len(sorted_result)-1:
         minus_weight += sorted_result[count][0]
         count += 1    
+
+    if output_state == [-1, -1, 1, 1]:
+        print(count)
+    
     if minus_weight < nudge_size:
         #cannot find a big enough nudge
         positive_nudge_impact = sorted_result[-1][1]*minus_weight 
@@ -356,6 +361,7 @@ def find_max_impact_nudge_to_output_state(cond_output, input_arr, nudge_size,
     #print("negative nudge impact {}".format(negative_nudge_impact))
     #print("the nudge is {}".format(nudge))
     nudge_impact = positive_nudge_impact - negative_nudge_impact
+    print(nudge_impact)
     return nudge, nudge_impact
 
 def select_subset(arr, threshold):
