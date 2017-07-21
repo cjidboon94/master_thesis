@@ -242,6 +242,122 @@ def mutate_array_bigger_zero(arr, nudge_size, option):
     nudged_array[plus_mask] = nudged_array[plus_mask] + plus_nudge 
     return nudged_array
 
+def find_max_impact_global_nudge(input_dist, cond_output, nudge_size):
+    """
+    Find the maximum nudge output, defined as the abs difference between
+    the old and the new output state.
+
+    Parameters:
+    ----------
+    input_dist: a numpy array
+        Representing the input distribution
+    cond_output: a numpy array
+        Representing the conditional probabilities of the output given 
+        the input. The first N-1 variables (axes) should represent the
+        input variables while the output should be the last axis.
+    nudge_size: A number
+
+    Returns: nudge, nudge_size
+    -------
+    nudge: a list of tuples
+        The nudge that gives the maximum impact.
+        Every tuple consist of an integer representing the nudge state on 
+        the flattened input array and a number representing the nudge size
+        on this state.
+    nudge_size: The impact size of this nudge, defined as the max difference
+
+    """
+    max_impact = 0
+    max_nudge = []
+    for output_nudge_state in itertools.product([-1, 1], repeat=cond_output.shape[-1]):
+        if all([state==0 for state in output_nudge_state]) or all([state==1 for state in output_nudge_state]):
+            continue
+        
+        perform_nudge, nudge_impact = find_max_impact_nudge_to_output_state(
+            cond_output, input_dist.flatten(), nudge_size, 
+            list(output_nudge_state)
+        )
+        if nudge_impact > max_impact:
+            max_impact = nudge_impact
+            max_nudge = perform_nudge
+
+    return max_nudge, max_impact
+
+def find_max_impact_nudge_to_output_state(cond_output, input_arr, nudge_size,
+                                          output_state):
+    """
+    Find the nudge that pushes the output variable maximally towards the 
+    output state
+
+    Parameters:
+    ----------
+    input_arr: a 1-D nd-array
+        Representing the flattened input distribution.
+    cond_output: a nd-array
+       Representing the conditional output distribution the output 
+       variable should be on the last axis.
+    nudge_size: a number
+    output_state: a list
+        With the same length as the number of output states with -1 and 1
+        as entries
+
+    Returns: nudge, nudge_impact
+    -------
+    nudge: a list of tuples
+        every tuple has an integer (the input state) and a number (the 
+        nudge size)
+    nudge_impact: a number
+        The maximum difference between the old output and the new 
+        preferentiable output 
+
+    """
+    allignment = cond_output.flatten() * np.array(output_state*input_arr.shape[0])
+    allignment_scores = np.sum(
+        np.reshape(allignment, (input_arr.shape[0], len(output_state))),
+        axis=1
+    )
+    #can (probably) be done more efficient by building a tree right away, for now good enough
+    sorted_result = sorted(
+        [[weight, score, input_var] for weight, score, input_var
+         in zip(input_arr, allignment_scores, range(input_arr.shape[0]))],
+        key=lambda x: x[1]
+    )
+
+    count = 0
+    minus_weight = 0
+    while minus_weight < nudge_size and count < len(sorted_result)-1:
+        minus_weight += sorted_result[count][0]
+        count += 1    
+    if minus_weight < nudge_size:
+        #cannot find a big enough nudge
+        positive_nudge_impact = sorted_result[-1][1]*minus_weight 
+        negative_nudge_impact = sum(
+            [weight*nudge_impact for weight, nudge_impact, _
+            in sorted_result[:count-1]]
+        ) 
+        nudge = [[input_var, -weight] for input_var, weight, _, input_var 
+                in sorted_result[:count]]
+        nudge.append(sorted_result[-1][2], minus_weight)
+    else:
+        positive_nudge_impact = sorted_result[-1][1]*nudge_size
+        last_minus_nudge = nudge_size - sum(
+            [item[0] for item in sorted_result[:count-1]]
+        )
+        negative_nudge_impact = (
+            sum([nudge*nudge_impact for nudge, nudge_impact, _ in sorted_result[:count-1]]) +
+            last_minus_nudge * sorted_result[count-1][1]
+        )
+        nudge = [[input_var, -nudge] for nudge, _, input_var 
+                in sorted_result[:count-1]]
+        nudge.append([sorted_result[count-1][2], -last_minus_nudge])
+        nudge.append([sorted_result[-1][2], nudge_size])
+
+    #print("positive nudge impact {}".format(positive_nudge_impact))
+    #print("negative nudge impact {}".format(negative_nudge_impact))
+    #print("the nudge is {}".format(nudge))
+    nudge_impact = positive_nudge_impact - negative_nudge_impact
+    return nudge, nudge_impact
+
 def select_subset(arr, threshold):
     """
     Select a subset of the arr (randomly) which is at least bigger than

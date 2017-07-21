@@ -251,5 +251,89 @@ class TestNudge(unittest.TestCase):
         #print(expected_marginal_output)
         self.assertTrue(np.allclose(marginal_output, expected_marginal_output))
 
+    def test_find_max_impact_nudge_to_output_state(self):
+        cond_output = np.array(
+            [
+                [
+                    [0.4, 0.2, 0.4],
+                    [0.3, 0.5, 0.2]
+                ],
+                [
+                    [0.3, 0.3, 0.4],
+                    [0.2, 0.2, 0.6]
+                ]
+            ]
+        )
+        output_state = [1, -1, 1]
+        input_arr = np.array([0.4, 0.1, 0.1, 0.4])
+        nudge_size = 0.3
+        out_nudge, out_impact = nudge.find_max_impact_nudge_to_output_state(
+            cond_output, input_arr, nudge_size, output_state
+        )
+        expected_nudge = [[1, -0.10], [2, -0.10], [3, -0.10], [0, 0.3]]
+        
+        self.assertAlmostEqual(out_impact, 0.08)
+        expected_nudge_sorted = sorted(expected_nudge, key=lambda x: x[0])
+        out_nudge_sorted = sorted(out_nudge, key=lambda x: x[0])
+        for count, nudge_info in enumerate(expected_nudge_sorted):
+            self.assertEqual(nudge_info[0], out_nudge_sorted[count][0])
+            self.assertAlmostEqual(nudge_info[1], out_nudge_sorted[count][1])
 
+    def test2_find_max_impact_nudge_to_output_state(self):
+        cond_output = np.array(
+            [
+                [
+                    [0.8, 0.1, 0.1],
+                    [0.18, 0.52, 0.3]
+                ],
+                [
+                    [0.2, 0.6, 0.2],
+                    [0.05, 0.1, 0.8]
+                ]
+            ]
+        )
+        output_state = [1, -1, -1]
+        input_arr = np.array([0.2, 0.25, 0.35, 0.2])
+        nudge_size = 0.3
+        out_nudge, out_impact = nudge.find_max_impact_nudge_to_output_state(
+            cond_output, input_arr, nudge_size, output_state
+        )
+        expected_nudge = [[1, -0.10], [3, -0.20], [0, 0.3]]
+        
+        self.assertAlmostEqual(out_impact, 0.3*0.6 - 0.2*(-0.85) - 0.1*(-0.64))
+        expected_nudge_sorted = sorted(expected_nudge, key=lambda x: x[0])
+        out_nudge_sorted = sorted(out_nudge, key=lambda x: x[0])
+        for count, nudge_info in enumerate(expected_nudge_sorted):
+            self.assertEqual(nudge_info[0], out_nudge_sorted[count][0])
+            self.assertAlmostEqual(nudge_info[1], out_nudge_sorted[count][1])
 
+    def test_find_max_impact_global_nudge(self):
+        input_arr = np.array(
+            [
+                [0.1, 0.15, 0.05],
+                [0.2, 0.1, 0.15],
+                [0.1, 0.1, 0.05],
+            ]
+        )
+        cond_output = np.array(
+            [
+                [
+                    [0.3, 0.3, 0.4],
+                    [0.5, 0.0, 0.5],
+                    [0.4, 0.1, 0.5]
+                ],
+                [
+                    [0.4, 0.2, 0.4],
+                    [0.3, 0.35, 0.35],
+                    [0.2, 0.4, 0.4]
+                ],
+                [
+                    [0.1, 0.1, 0.8],
+                    [0.5, 0.2, 0.3],
+                    [0.1, 0.3, 0.6]
+                ]
+            ]
+        )
+        nudge_size = 0.2
+        out_max_nudge, out_max_impact = nudge.find_max_impact_global_nudge(input_arr, cond_output, nudge_size)
+        #print(out_max_nudge, out_max_impact)
