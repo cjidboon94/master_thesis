@@ -1,5 +1,5 @@
 def find_optimum_list(opt_list, threshold, tracks, path, path_use=0):
-    "find the optimum combination of path and tracks
+    """find the optimum combination of path and tracks
     
     Parameters:
     ----------
@@ -26,7 +26,7 @@ def find_optimum_list(opt_list, threshold, tracks, path, path_use=0):
     opt_list: a list of lists
         Every list has items: length, height
         
-    "
+    """
     if threshold < 0:
         raise ValueError("threshold should is smaller zero")
     if path["length"] <= 0 or path["height"] <= 0:
@@ -66,7 +66,7 @@ def find_optimum_list(opt_list, threshold, tracks, path, path_use=0):
         add_length = min(remaining_path_length, eq_length-path_use)
         path_use += add_length
         threshold -= add_length
-        opt_list.append({"length":add_length, path_height})
+        opt_list.append({"length":add_length, "height": path_height})
         return find_optimum_list(opt_list, threshold, tracks, path, path_use)
     elif (eq_length > path["length"] or eq_length == -1) and remaining_path_length != 0:
         opt_list.append({"length": remaining_path_length, "height": path["height"]})
@@ -127,7 +127,7 @@ def find_shift_length(tracks, path, extra_length=0):
             tracks[0]["length"], 
             length_till_higher_track+tracks[higher_track]["length"]-path["length"]
         )
-        old_tracks = trim_tracks[tracks, end=path["length"]]
+        old_tracks = trim_tracks(tracks, end=path["length"])
         new_tracks = trim_tracks(tracks, start=next_length, 
                                  end=path["length"]+next_length)
         total_height_new_tracks = find_height(new_tracks)
@@ -139,10 +139,10 @@ def find_shift_length(tracks, path, extra_length=0):
             return next_length+extra_length, path["length"]
         else:
             length_till_shift = (
-                (total_path_height-find_height(old_tracks) / 
+                (total_path_height-find_height(old_tracks)) / 
                 (tracks[higher_track]["height"]-tracks[0]["height"])
             )
-            return length_till_shift+extra_length, path["length"]
+            return (length_till_shift+extra_length, path["length"])
     else:
         tracks_higher_path_length = trim_tracks(tracks, start=path_length)
         next_length = min(tracks[0]["length"], 
@@ -189,17 +189,24 @@ def find_shift_length(tracks, path, extra_length=0):
                     first_attempt_eq_length+extra_length, 
                     find_length(old_tracks)-next_length
                 )
-            elif:
-                second_attempt_eq_length = (
-                    (
-                        (use_new_track_eq_length*(path_height-tracks[0]["height"]) +
-                        (path['height']*find_length(old_tracks) - find_height(old_tracks))
-                    ) /
-                    (tracks_higher_path_length[0]["height"]- tracks[0]["height"])
-                )
-                return second_attempt_eq_length+extra_length, path["length"]
+
+            second_attempt_eq_length = (
+                (
+                    use_new_track_eq_length*(path_height-tracks[0]["height"]) +
+                    (path['height']*find_length(old_tracks) - find_height(old_tracks))
+                ) /
+                (tracks_higher_path_length[0]["height"]- tracks[0]["height"])
+            )
+            return second_attempt_eq_length+extra_length, path["length"]
 
 def find_last_included_track(tracks, height):
+    """
+    find the last track so as to optimize:
+    sum((track[height]-height)*track[length] for track in tracks)
+
+    Returns: a number
+
+    """
     last_included_track = -1
     total_length, total_height = 0, 0
     for count, track in enumerate(tracks):
@@ -222,7 +229,7 @@ def find_height(tracks):
 
 def find_track_higher_height(tracks, height):
     for count, track in enumerate(tracks):
-        if track["height"] > track:
+        if track["height"] > height:
             return count
 
     return -1
@@ -272,18 +279,31 @@ def trim_tracks(tracks, start=0, end=None):
     if start == end:
         return []
 
+    #print("the start is {}, the end is {}".format(start, end))
     total_length = 0
     trimmed_tracks = []
     for track in tracks:
         new_total_length = track["length"] + total_length
-        if new_total_length < start:
+        if new_total_length <= start:
             total_length = new_total_length
-        elif new_total_length <= end:
-            trimmed_tracks.append([track])
+        elif total_length < start and new_total_length > start:
+            trimmed_tracks.append(
+                {
+                    "length":new_total_length-start,
+                    "height": track["height"]
+                }
+            )
             total_length = new_total_length
-        elif total_length <= end and new_total_length >= end:
+        elif new_total_length < end:
+            trimmed_tracks.append(track)
+            total_length = new_total_length
+        elif new_total_length==end:
+            trimmed_tracks.append(track)
+            total_length = new_total_length
+            return trimmed_tracks
+        elif total_length < end and new_total_length >= end:
             trimmed_tracks.append({
-                "length":new_total_length-end, 
+                "length":end-total_length, 
                 "height":track["height"]
             })
             return trimmed_tracks
@@ -292,7 +312,38 @@ def trim_tracks(tracks, start=0, end=None):
 
     return trimmed_tracks
 
+def create_tracks(tracks):
+    """create from a list of list a lists of dicts
+    
+    Parameters:
+    ----------
+    tracks:a list of pairs
+        every pair should be an iterable with two items. The first item 
+        equal to the length, the second to the height
 
+    Returns: a list of dicts
+        every dict has two keys length and height
 
+    """
+    new_tracks = []
+    for track in tracks:
+        new_tracks.append(
+            {
+                "length": track[0],
+                "height": track[1]
+            }
+        )
+    return new_tracks
 
+if __name__ == "__main__":
+    example_tracks = [
+        [0.8, 1],
+        [1, 2.5],
+        [1.2, 1.8],
+        [0.5, 2.8]
+    ]
+    tracks = create_tracks(example_tracks)
+    print(tracks)
+    trimmed_tracks = trim_tracks(tracks, start=0.5, end=3)
+    print(trimmed_tracks)
 
