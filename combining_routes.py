@@ -50,9 +50,14 @@ def find_optimum_list(opt_list, threshold, tracks, path, path_use=0):
         return opt_list
 
     remaining_path_length = min(path["length"]-path_use, threshold)
-    length_till_higher_height = find_track_higher_height(tracks, path["height"])
+    higher_track = find_track_higher_height(tracks, path["height"])
+    if higher_track != -1:
+        length_till_higher_height = find_length(tracks[:higher_track])
+    else:
+        length_till_higher_height = -1
+
     eq_length = find_eq_length(tracks, path["height"])
-    if length_till_higher_height != -1 or length_till_higher_height >= threshold:
+    if length_till_higher_height == -1 or length_till_higher_height >= threshold:
         opt_list.append({"length": remaining_path_length, "height": path["height"]})
         opt_list.append(trim_tracks(tracks, end=threshold-remaining_path_length))
         return opt_list
@@ -106,100 +111,114 @@ def find_shift_length(tracks, path, extra_length=0):
         How much length is shifted
 
     """
+    print("")
+    print("in function the extra lenght is {}".format(extra_length))
+    print(tracks)
     total_path_height = path["height"]*path["length"]
-    if find_height(trim_tracks(tracks, path["length"])) > total_path_height:
-        raise ValueError("path length already too high")
+    print("the total path height is {}".format(total_path_height))
+    if find_height(trim_tracks(tracks, end=path["length"])) > total_path_height:
+        raise ValueError("path length already too long")
     
     higher_track = find_track_higher_height(tracks, path["height"])
     if higher_track == -1:
         return -1, 0
 
-    length_till_higher_track = sum(
-        [track["length"] for track in tracks[:higher_track]]
-    )
+    old_tracks = trim_tracks(tracks, end=path["length"])
+    length_till_higher_track = find_length(tracks[:higher_track])
+    print("length till higher track {}".format(length_till_higher_track))
     if path['length'] < length_till_higher_track:
+        print("in the if")
         extra_length += length_till_higher_track - path["length"]
         tracks = trim_tracks(tracks, 
-                             start=length_till_higher_track-path["height"])
+                             start=length_till_higher_track-path["length"])
         return find_shift_length(tracks, path, extra_length)
     elif path['length'] < length_till_higher_track+tracks[higher_track]["length"]:
+        print("in the elif")
         next_length = min(
-            tracks[0]["length"], 
-            length_till_higher_track+tracks[higher_track]["length"]-path["length"]
+            tracks[0]["length"],
+            find_length(tracks[:higher_track+1])-path["length"]
         )
-        old_tracks = trim_tracks(tracks, end=path["length"])
-        new_tracks = trim_tracks(tracks, start=next_length, 
+        print("the next length is {}".format(next_length))
+        new_tracks = trim_tracks(tracks, start=next_length,
                                  end=path["length"]+next_length)
-        total_height_new_tracks = find_height(new_tracks)
-        if total_height_new_tracks < total_path_height:
+        height_new_tracks = find_height(new_tracks)
+        print("height new tracks {}".format(height_new_tracks))
+        if height_new_tracks < total_path_height:
             extra_length += next_length
             trimmed_tracks = trim_tracks(tracks, start=next_length)
             return find_shift_length(trimmed_tracks, path, extra_length)
-        elif total_height_new_tracks == total_path_height:
+        elif height_new_tracks == total_path_height:
             return next_length+extra_length, path["length"]
         else:
-            length_till_shift = (
-                (total_path_height-find_height(old_tracks)) / 
-                (tracks[higher_track]["height"]-tracks[0]["height"])
-            )
-            return (length_till_shift+extra_length, path["length"])
+            start_difference = total_path_height-find_height(old_tracks)
+            gain_per_length = tracks[higher_track]["height"]-tracks[0]["height"]
+            print(start_difference)
+            print(gain_per_length)
+            length_till_shift = start_difference/gain_per_length
+            return length_till_shift+extra_length, path["length"]
     else:
-        tracks_higher_path_length = trim_tracks(tracks, start=path_length)
-        next_length = min(tracks[0]["length"], 
-                          tracks_higher_path_length[0]["length"])
+        print("in the else")
+        tracks_after_path_length = trim_tracks(tracks, start=path["length"])
+        next_length = min(
+            tracks[0]["length"], tracks_after_path_length[0]["length"]
+        )
+        print("the next length is {}".format(next_length))
+        new_track = trim_tracks([tracks_after_path_length[0]], end=next_length)[0]
 
-        last_included_track_old = find_last_included_track(tracks[higher_track+1:], path["height"])
-        if tracks_higher_path_length[0]["height"] < path["height"]:
-            last_included_track_new = last_included_track_old
+        last_track_old = find_last_relevant_track(old_tracks[higher_track+1:], path["height"])
+        print("the tracks {}".format(old_tracks[higher_track+1:]))
+        print("last tarck old {}".format(last_track_old))
+        #accounts for return value of -1, can be used directly in slice notation
+        last_included_track_old = higher_track + 1 + last_track_old + 1
+        print("last included track old {}".format(last_included_track_old))
+        eq_length_usage_new_track = find_eq_length(
+                old_tracks[last_included_track_old:]+[new_track], path["height"]
+        )
+        if eq_length_usage_new_track == -1:
+            optimal_new_tracks = trim_tracks(
+                tracks[:last_included_track_old], start=next_length
+            )
         else:
-            last_included_track_new = find_last_included_track(tracks[higher_track+1:], path["height"]+next_length)
+            optimal_new_tracks = trim_tracks(old_tracks+[new_track], start=next_length)
+            length_previous_not_included_tracks = find_length(old_tracks[last_included_track_old:])
+            length_to_add_for_eq = eq_length_usage_new_track-length_previous_not_included_tracks
 
-        use_new_track = last_included_track_old<last_included_track_new
-        new_tracks = trim_tracks(tracks[:last_included_track_new+1], start=next_length)
-        length_new_tracks = find_length(new_tracks)
-        height_new_tracks = find_height(new_tracks)
-        if height_new_tracks < length_new_tracks*path["height"]:
-            extra_length += next_length
-            trimmed_tracks = trim_tracks(tracks, start=next_length)
-            return find_shift_length(trimmed_tracks, path, extra_length)
-        elif height_new_tracks == length_new_tracks*path["height"]:
-            return next_length+extra_length, length_new_tracks
-        elif not use_new_track:
-            eq_length = (
-                (length_new_tracks*path["height"] - height_new_tracks) /
-                (path["height"]-tracks[0]["height"])
-            )
-            return eq_length+extra_length, length_new_tracks
+        print(eq_length_usage_new_track)
+        print("optimal new tracks")
+        print(optimal_new_tracks)
+
+        optimal_length = find_length(optimal_new_tracks)
+        optimal_height = find_height(optimal_new_tracks)
+        print("the optimal  length is {}, height {}".format(optimal_length, optimal_height))
+        if optimal_height < optimal_length*path["height"]:
+            new_tracks = trim_tracks(tracks, start=next_length)
+            return find_shift_length(new_tracks, path, extra_length+next_length)
+        elif optimal_height == optimal_length*path["height"]:
+            return next_length+extra_length, optimal_length
         else:
-            trimmed_tracks = trim_tracks(
-                tracks,
-                start=find_length(tracks[:last_included_track_old]),
-                end=path["length"]+next_length
+            start_difference = (
+                path["height"]*find_length(tracks[:last_included_track_old]) -
+                find_height(tracks[:last_included_track_old])
             )
-            use_new_track_eq_length = find_eq_length(
-                trimmed_tracks, path['height']
-            )
-            old_tracks = tracks[:last_included_track_old+1]
-            first_attempt_eq_length = (
-                (path['height']*find_length(old_tracks) - find_height(old_tracks)) / 
-                (path_height-tracks[0]["height"])
-            )
-            if first_attempt_eq_length <= use_new_track_eq_length:
-                return (
-                    first_attempt_eq_length+extra_length, 
-                    find_length(old_tracks)-next_length
+            print("start difference {}".format(start_difference))
+            first_gain_per_added_length = path["height"]-tracks[0]["height"]
+            print(first_gain_per_added_length)
+            eq_length = start_difference/first_gain_per_added_length
+            if eq_length_usage_new_track == -1 or eq_length<length_to_add_for_eq:
+                shift_length = optimal_length+(next_length-eq_length)
+                return eq_length+extra_length, shift_length
+            else:
+                start_difference -= (
+                    first_gain_per_added_length*length_to_add_for_eq
                 )
+                print("start_difference {}".format(start_difference))
+                print(new_track)
+                gain_per_added_length = new_track["height"]-tracks[0]["height"]
+                print("gain per added length {}".format(gain_per_added_length))
+                new_eq_length = start_difference/gain_per_added_length
+                return length_to_add_for_eq+new_eq_length+extra_length, path["length"]
 
-            second_attempt_eq_length = (
-                (
-                    use_new_track_eq_length*(path_height-tracks[0]["height"]) +
-                    (path['height']*find_length(old_tracks) - find_height(old_tracks))
-                ) /
-                (tracks_higher_path_length[0]["height"]- tracks[0]["height"])
-            )
-            return second_attempt_eq_length+extra_length, path["length"]
-
-def find_last_included_track(tracks, height):
+def find_last_relevant_track(tracks, height):
     """
     find the last track so as to optimize:
     sum((track[height]-height)*track[length] for track in tracks)
@@ -211,8 +230,8 @@ def find_last_included_track(tracks, height):
     total_length, total_height = 0, 0
     for count, track in enumerate(tracks):
         new_total_length = total_length + track["length"]
-        new_total_height = total_height + track["height"]
-        if new_total_height/new_total_length > height:
+        new_total_height = total_height + track["height"]*track["length"]
+        if new_total_height/new_total_length >= height:
             last_included_track = count
             total_length, total_height = 0, 0
         else:
@@ -228,6 +247,7 @@ def find_height(tracks):
     return sum([track["length"]*track["height"] for track in tracks])
 
 def find_track_higher_height(tracks, height):
+    """returns the number of the higher track, counting starts at 0!"""
     for count, track in enumerate(tracks):
         if track["height"] > height:
             return count
@@ -257,14 +277,17 @@ def find_eq_length(tracks, height, total_length=0, total_height=0):
     
     for track in tracks[:higher_track]:
         total_length += track["length"]
-        total_height += track["height"]
+        total_height += track["height"]*track["length"]
 
     new_total_length = total_length + tracks[higher_track]["length"]
-    new_total_height = total_height + tracks[higher_track]["height"]
-    if new_total_height/new_total_length > height:
-        length_last_track = ((total_length*height - total_height) / 
-                             (track["height"] - height))
-        return total_length + length_last_track
+    new_total_height = (
+        total_height + 
+        tracks[higher_track]["height"]*tracks[higher_track]["length"]
+    )
+    if new_total_height/new_total_length >= height:
+        gain_per_extra_length = tracks[higher_track]["height"] - height
+        start_difference = total_length*height - total_height
+        return start_difference/gain_per_extra_length + total_length
     elif higher_track+1 != len(tracks):
         tracks = tracks[higher_track+1:]
         return find_eq_length(tracks, height, new_total_length, new_total_height)
