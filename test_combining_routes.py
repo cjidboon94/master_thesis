@@ -340,5 +340,172 @@ class TestCombiningRoutes(unittest.TestCase):
         self.assertAlmostEqual(length_till_shift, 0.55)
         self.assertAlmostEqual(shift_length, 3)
 
+    def test1_find_optimum_tracks(self):
+        tracks = [
+            {"length":1.0, "height": 2},
+            {"length":0.9, "height": 1.6},
+            {"length":0.1, "height": 3.0},
+            {"length":0.5, "height": 2.2},
+            {"length":2.0, "height": 3.2}
+        ]
+        path = {"length":1.5, "height":4}
+        opt_list = combining_routes.find_optimum_list([], 4, tracks, path)
+        print(opt_list)
+        expected_opt_list = [
+            {"length":1.5, "height":4},
+            {"length":1.0, "height":2},
+            {"length":0.9, "height":1.6},
+            {"length":0.1, "height":3.0},
+            {"length":0.5, "height":2.2},
+        ]
+        for count, track in enumerate(expected_opt_list):
+            self.assertAlmostEqual(track["length"], opt_list[count]["length"])
+            self.assertAlmostEqual(track["height"], opt_list[count]["height"])
 
+    def test2_find_optimum_tracks(self):
+        tracks = [
+            {"length":1.0, "height": 2},
+            {"length":0.9, "height": 1.6},
+            {"length":0.1, "height": 2.9},
+            {"length":1.0, "height": 2.2},
+            {"length":2.0, "height": 3.2}
+        ]
+        path = {"length":1.5, "height":3}
+        threshold = 3
+        opt_list = combining_routes.find_optimum_list([], threshold, tracks, path)
+        print(opt_list)
+        expected_opt_list = [
+            {"length":1.5, "height":3},
+            {"length":1.0, "height":2},
+            {"length":0.5, "height":1.6}
+        ]
+        for count, track in enumerate(expected_opt_list):
+            self.assertAlmostEqual(track["length"], opt_list[count]["length"])
+            self.assertAlmostEqual(track["height"], opt_list[count]["height"])
+       
+    def test3_find_optimum_tracks(self):
+        tracks = [
+            {"length":1.0, "height": 2},
+            {"length":0.9, "height": 1.6},
+            {"length":0.1, "height": 3.0},
+            {"length":0.5, "height": 2.2},
+            {"length":2.0, "height": 3.2}
+        ]
+        path = {"length":1.5, "height":1}
+        threshold = 3.5
+        old_opt_list = [{"length":2 , "height":0.5}]
+        opt_list = combining_routes.find_optimum_list(old_opt_list, threshold, tracks, path)
+        print(opt_list)
+        expected_opt_list = [
+            {"length":2, "height":0.5},
+            {"length":1, "height":2},
+            {"length":0.9, "height":1.6},
+            {"length":0.1, "height":3.0},
+            {"length":0.5, "height":2.2},
+            {"length":1, "height":3.2}
+        ]
+        for count, track in enumerate(expected_opt_list):
+            self.assertAlmostEqual(track["length"], opt_list[count]["length"])
+            self.assertAlmostEqual(track["height"], opt_list[count]["height"])
+
+    def test4_find_optimum_tracks(self):
+        tracks = []
+        path = {"length":1.5, "height":1}
+        threshold = 3.5
+        old_opt_list = [{"length":2 , "height":0.5}]
+        opt_list = combining_routes.find_optimum_list(old_opt_list, threshold, tracks, path)
+        print(opt_list)
+        expected_opt_list = [
+            {"length":2, "height":0.5},
+            {"length":1.5, "height":1}
+        ]
+        for count, track in enumerate(expected_opt_list):
+            self.assertAlmostEqual(track["length"], opt_list[count]["length"])
+            self.assertAlmostEqual(track["height"], opt_list[count]["height"])
+
+    def test5_find_optimum_tracks(self):
+        tracks = []
+        path = {"length":1.5, "height":1}
+        threshold = 1 
+        old_opt_list = [{"length":2 , "height":0.5}]
+        opt_list = combining_routes.find_optimum_list(old_opt_list, threshold, tracks, path)
+        print(opt_list)
+        expected_opt_list = [
+            {"length":2, "height":0.5},
+            {"length":1, "height":1}
+        ]
+        for count, track in enumerate(expected_opt_list):
+            self.assertAlmostEqual(track["length"], opt_list[count]["length"])
+            self.assertAlmostEqual(track["height"], opt_list[count]["height"])
+
+    def test6_find_optimum_tracks(self):
+        tracks = [
+            {"length":1.0, "height": 3},
+            {"length":0.9, "height": 2.6},
+            {"length":0.1, "height": 1.0},
+            {"length":0.5, "height": 2.2},
+            {"length":2.0, "height": 3.2}
+        ]
+        path = {"length":1.5, "height":2.5}
+        threshold = 4.0
+        old_opt_list = []
+        opt_list = combining_routes.find_optimum_list(old_opt_list, threshold, tracks, path)
+        print(opt_list)
+        expected_opt_list = [
+            {"length":1, "height":3},
+            {"length":0.9, "height":2.6},
+            {"length":0.6 + 0.3/0.7, "height":2.5},
+            {"length":1.07142857, "height":3.2}
+        ]
+        for count, track in enumerate(expected_opt_list):
+            self.assertAlmostEqual(track["length"], opt_list[count]["length"])
+            self.assertAlmostEqual(track["height"], opt_list[count]["height"])
+
+    def test7_find_optimum_tracks(self):
+        tracks = [
+            {"length":0.5, "height": 1.8},
+            {"length":1, "height": 1},
+            {"length":1, "height": 2.5},
+            {"length":0.5, "height": 1.8},
+            {"length":2.0, "height": 3}
+        ]
+        path = {"length":2, "height":2}
+        threshold = 4.6
+        old_opt_list = []
+        opt_list = combining_routes.find_optimum_list(old_opt_list, threshold, tracks, path)
+        print(opt_list)
+        expected_opt_list = [
+            {"length":2, "height":2},
+            {"length":0.5, "height":1.8},
+            {"length":0.5, "height":1},
+            {"length":0.1, "height":2},
+            {"length":1.5, "height":3}
+        ]
+        for count, track in enumerate(expected_opt_list):
+            self.assertAlmostEqual(track["length"], opt_list[count]["length"])
+            self.assertAlmostEqual(track["height"], opt_list[count]["height"])
+
+    def test8_find_optimum_tracks(self):
+        tracks = [
+            {"length":0.5, "height": 1.8},
+            {"length":1, "height": 1},
+            {"length":1, "height": 2.5},
+            {"length":2, "height": 1.8},
+            {"length":1.0, "height": 1.9}
+        ]
+        path = {"length":2, "height":2}
+        threshold = 6
+        old_opt_list = []
+        opt_list = combining_routes.find_optimum_list(old_opt_list, threshold, tracks, path)
+        print(opt_list)
+        expected_opt_list = [
+            {"length":2, "height":2},
+            {"length":0.5, "height":1.8},
+            {"length":0.5, "height":1},
+            {"length":1.5, "height":2},
+            {"length":1.5, "height":1.8}
+        ]
+        for count, track in enumerate(expected_opt_list):
+            self.assertAlmostEqual(track["length"], opt_list[count]["length"])
+            self.assertAlmostEqual(track["height"], opt_list[count]["height"])
 
