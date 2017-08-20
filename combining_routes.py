@@ -1,3 +1,34 @@
+import merge
+
+def find_optimal_height_routes(routes, threshold):
+    """return the maximum attained height"""
+    opt_list = trim_tracks(routes[0], end=threshold)
+    for route in routes:
+        opt_list = combine_routes(opt_list, route, threshold)
+
+    return find_height(opt_list)
+
+#still need to be tested
+def combine_routes(opt_route, tracks, threshold):
+    """create the optimal combination of two routes
+    
+    Returns: a list with the optimal tracks
+
+    """
+    tracks = trim_tracks(tracks, end=threshold)
+    new_opt_route = find_optimum_list([], threshold, opt_route, tracks[0])
+    remaining_length = threshold-tracks[0]["length"]
+    for count, track in enumerate(tracks[1:]):
+        temp_opt_route = find_optimum_list(
+            tracks[:count+1], remaining_length, 
+            trim_tracks(opt_route, end=remaining_length), track
+        )
+        new_opt_route = merge.merge_tracks(new_opt_route, temp_opt_route)
+        remaining_length -= track["length"]
+
+    return new_opt_route
+
+
 def find_optimum_list(opt_list, threshold, tracks, path, path_use=0):
     """find the optimum combination of path and tracks
     
@@ -23,8 +54,8 @@ def find_optimum_list(opt_list, threshold, tracks, path, path_use=0):
 
     Returns:
     -------
-    opt_list: a list of lists
-        Every list has items: length, height
+    opt_list: a list of dicts
+        Every dict has keys: length, height
         
     """
     if threshold < 0:
@@ -366,13 +397,17 @@ def create_tracks(tracks):
 
 if __name__ == "__main__":
     example_tracks = [
-        [0.8, 1],
+        [0.5, 1.5],
         [1, 2.5],
-        [1.2, 1.8],
-        [0.5, 2.8]
+        [0.3, 2.0],
+        [0.4, 1.7],
+        [0.2, 1.4]
     ]
     tracks = create_tracks(example_tracks)
-    print(tracks)
-    trimmed_tracks = trim_tracks(tracks, start=0.5, end=3)
-    print(trimmed_tracks)
+    path = {"length":0.4, "height":2}
+    #print(tracks)
+    opt_list = find_optimum_list([{"length":0.2, "height":1.6}], 2.2, tracks, path)
+    print(opt_list)
+    #trimmed_tracks = trim_tracks(tracks, start=0.5, end=3)
+    #print(trimmed_tracks)
 
