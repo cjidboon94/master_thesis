@@ -394,7 +394,9 @@ class TestCombiningRoutes(unittest.TestCase):
         path = {"length":1.5, "height":1}
         threshold = 3.5
         old_opt_list = [{"length":2 , "height":0.5}]
-        opt_list = combining_routes.find_optimum_list(old_opt_list, threshold, tracks, path)
+        opt_list = combining_routes.find_optimum_list(
+            old_opt_list, threshold, tracks, path
+        )
         print(opt_list)
         expected_opt_list = [
             {"length":2, "height":0.5},
@@ -504,6 +506,137 @@ class TestCombiningRoutes(unittest.TestCase):
             {"length":0.5, "height":1},
             {"length":1.5, "height":2},
             {"length":1.5, "height":1.8}
+        ]
+        for count, track in enumerate(expected_opt_list):
+            self.assertAlmostEqual(track["length"], opt_list[count]["length"])
+            self.assertAlmostEqual(track["height"], opt_list[count]["height"])
+
+    def test1_combine_routes(self):
+        opt_route = [
+            {"length":1.5, "height": 2.8},
+            {"length":1, "height": 3},
+            {"length":1, "height": 4.5},
+        ]
+        new_route = [
+            {"length":0.5, "height": 1.8},
+            {"length":1, "height": 1},
+            {"length":2.0, "height": 1.9}
+        ]
+        threshold = 3.5 
+        opt_list = combining_routes.combine_routes(opt_route, new_route, threshold)
+        expected_opt_list = [
+            {"length":1.5, "height": 2.8},
+            {"length":1, "height": 3},
+            {"length":1, "height": 4.5}
+        ]
+        for count, track in enumerate(expected_opt_list):
+            self.assertAlmostEqual(track["length"], opt_list[count]["length"])
+            self.assertAlmostEqual(track["height"], opt_list[count]["height"])
+
+    def test2_combine_routes(self):
+        opt_route = [
+            {"length":1.5, "height": 3.8},
+            {"length":1, "height": 3},
+            {"length":1, "height": 2.5},
+        ]
+        new_route = [
+            {"length":0.5, "height": 2.9},
+            {"length":1, "height": 1},
+            {"length":2.0, "height": 1.9}
+        ]
+        threshold = 3.5 
+        opt_list = combining_routes.combine_routes(opt_route, new_route, threshold)
+        print(opt_list)
+        expected_opt_list = [
+            {"length":1.5, "height": 3.8},
+            {"length":1, "height": 3},
+            {"length":0.5, "height": 2.9},
+            {"length":0.5, "height": 2.5}
+        ]
+        for count, track in enumerate(expected_opt_list):
+            self.assertAlmostEqual(track["length"], opt_list[count]["length"])
+            self.assertAlmostEqual(track["height"], opt_list[count]["height"])
+
+    def test3_combine_routes(self):
+        opt_route = [
+            {"length":1.5, "height": 3.8},
+            {"length":1, "height": 3},
+            {"length":1, "height": 2.5},
+        ]
+        new_route = [
+            {"length":0.5, "height": 2.9},
+            {"length":0.05, "height": 2},
+            {"length":2.95, "height": 2.7}
+        ]
+        threshold = 3.5 
+        opt_list = combining_routes.combine_routes(opt_route, new_route, threshold)
+        print(opt_list)
+        expected_opt_list = [
+            {"length":1.5, "height": 3.8},
+            {"length":1, "height": 3},
+            {"length":0.5, "height": 2.9},
+            {"length":0.175, "height": 2.5},
+            {"length":0.325, "height": 2.7}
+        ]
+        for count, track in enumerate(expected_opt_list):
+            self.assertAlmostEqual(track["length"], opt_list[count]["length"])
+            self.assertAlmostEqual(track["height"], opt_list[count]["height"])
+
+    def test4_combine_routes(self):
+        opt_route = [
+            {"length":1.5, "height": 3.8},
+            {"length":1, "height": 3},
+            {"length":1, "height": 2.5},
+        ]
+        new_route = [
+            {"length":0.5, "height": 3.9},
+            {"length":0.05, "height": 2},
+            {"length":2.95, "height": 2.7}
+        ]
+        threshold = 3.5 
+        opt_list = combining_routes.combine_routes(opt_route, new_route, threshold)
+        print("opt list {}".format(opt_list))
+        expected_opt_list = [
+            {"length":0.5, "height": 3.9},
+            {"length":1.5, "height": 3.8},
+            {"length":1, "height": 3},
+            {"length":0.175, "height": 2.5},
+            {"length":0.325, "height": 2.7}
+        ]
+        for count, track in enumerate(expected_opt_list):
+            self.assertAlmostEqual(track["length"], opt_list[count]["length"])
+            self.assertAlmostEqual(track["height"], opt_list[count]["height"])
+
+    def test5_combine_routes(self):
+        opt_route = [
+            {"length":2, "height": 3},
+            {"length":1, "height": 4},
+            {"length":1.5, "height": 2.5},
+            {"length":1, "height": 1.5},
+            {"length":3, "height": 5},
+            {"length":4, "height": 1},
+        ]
+        new_route = [
+            {"length":1, "height": 2},
+            {"length":2, "height": 2.5},
+            {"length":3, "height": 3},
+            {"length":2, "height": 3.5},
+            {"length":0.5, "height": 3.3},
+            {"length":4, "height": 3},
+        ]
+        threshold = 12.5 
+        opt_list = combining_routes.combine_routes(opt_route, new_route, threshold)
+        print("opt list {}".format(opt_list))
+        expected_opt_list = [
+            {"length":2, "height": 3},
+            {"length":1, "height": 4},
+            {"length":1.5, "height": 2.5},
+            {"length":1, "height": 2},
+            {"length":0.2, "height": 2.5},
+            {"length":2.8, "height": 5},
+            {"length":1, "height": 2},
+            {"length":2, "height": 2.5},
+            {"length":1, "height": 3},
         ]
         for count, track in enumerate(expected_opt_list):
             self.assertAlmostEqual(track["length"], opt_list[count]["length"])

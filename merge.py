@@ -17,10 +17,10 @@ def merge_tracks(tracks1, tracks2):
     #lengths have one more item than tracks since they are starting at zero
     lengths1 = create_total_lengths(tracks1)
     lengths2 = create_total_lengths(tracks2)
-    if lengths1[-1] != lengths2[-1]:
-        raise ValueError("the tracks should have the same total length")
     #print("lengths1 {}, lengths2 {}".format(lengths1, lengths2))
     opt_list = []
+    if lengths1[-1]-lengths2[-1] > 10**(-7):
+        raise ValueError("the tracks should have the same total length")
 
     prev_length = 0
     prev_height1, prev_height2 = 0, 0
@@ -28,6 +28,7 @@ def merge_tracks(tracks1, tracks2):
     pointer1, pointer2 = 0, 0
     new_pointer1, new_pointer2 = 0, 0
     while pointer1 != len(lengths1)-1 or pointer2 != len(lengths2)-1:
+        #print("")
         #print("pointer1 {}, pointer2 {}".format(pointer1, pointer2))
         if lengths1[pointer1+1] > lengths2[pointer2+1]:
             extra_length = lengths2[pointer2+1]-prev_length
@@ -85,7 +86,17 @@ def merge_tracks(tracks1, tracks2):
         prev_length += extra_length
 
     opt_list = merge_duplicates(opt_list)
+    #print("after merging duplicates {}".format(opt_list))
     return opt_list
+
+def clean_tracks(tracks):
+    new_tracks = []
+    for track in tracks:
+        if track["length"] > 10**(-8):
+            new_tracks.append(track)
+
+    return new_tracks
+
 
 def merge_duplicates(tracks):
     """merge all consecutive tracks with the same height"""
@@ -99,8 +110,8 @@ def merge_duplicates(tracks):
         #print("start track {}, next track {}".format(start_track, next_track))
         if tracks[start_track]["height"] == tracks[next_track]["height"]:
             new_tracks[-1] = {
-                "length":tracks[start_track]["length"]+tracks[next_track]["length"],
-                "height":tracks[start_track]["height"]
+                "length":new_tracks[-1]["length"]+tracks[next_track]["length"],
+                "height":new_tracks[-1]["height"]
             }
             next_track += 1
         else:
@@ -109,6 +120,8 @@ def merge_duplicates(tracks):
                 "height": tracks[next_track]["height"]
             })
             start_track, next_track = next_track, next_track+1
+
+        #print("the new tracks {}".format(new_tracks))
 
     return new_tracks
 

@@ -8,24 +8,35 @@ def find_optimal_height_routes(routes, threshold):
 
     return find_height(opt_list)
 
-#still need to be tested
 def combine_routes(opt_route, tracks, threshold):
     """create the optimal combination of two routes
     
     Returns: a list with the optimal tracks
 
     """
+    #this measure is purely taken against round off errors
+    if 0 < abs(find_length(opt_route)-find_length(tracks)) < 10**(-8):
+        min_length = min(find_length(opt_route), find_length(tracks))
+        opt_route = trim_tracks(opt_route, end=min_length)
+        tracks = trim_tracks(tracks, end=min_length)
+
     tracks = trim_tracks(tracks, end=threshold)
     new_opt_route = find_optimum_list([], threshold, opt_route, tracks[0])
+    #print("new opt route {}".format(new_opt_route))
     remaining_length = threshold-tracks[0]["length"]
     for count, track in enumerate(tracks[1:]):
+        #print("")
         temp_opt_route = find_optimum_list(
             tracks[:count+1], remaining_length, 
             trim_tracks(opt_route, end=remaining_length), track
         )
+        #print("temp opt route {}".format(temp_opt_route))
         new_opt_route = merge.merge_tracks(new_opt_route, temp_opt_route)
+        #print("new opt route {}".format(new_opt_route))
         remaining_length -= track["length"]
 
+    #this measure is purely taken against round off errors
+    new_opt_route = merge.clean_tracks(new_opt_route)
     return new_opt_route
 
 
