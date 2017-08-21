@@ -25,15 +25,22 @@ def find_maximum_local_nudge(input_dist, cond_output, nudge_size):
     number_of_input_states = input_dist.flatten().shape[0]
     number_of_input_variables = len(input_dist.shape)
     number_of_output_states = cond_output.shape[-1]
+
+    #print("number of input variables {}".format(number_of_input_variables))
     
-    cond_nudge, marginal_label, _ = ProbabilityArray(input_dist).find_conditional(
-       set([number_of_input_variables-1]),
-       set(list(range(number_of_input_variables-1)))
-    )
-    #print("the conditional nudge is") 
-    #print(cond_nudge)
-    if list(marginal_label)[0] != number_of_input_variables-1:
-        raise ValueError("wrong variables are conditioned on")
+    if number_of_input_variables == 1:
+        cond_nudge = input_dist
+    else:
+        cond_nudge, marginal_label, _ = ProbabilityArray(input_dist).find_conditional(
+            set([number_of_input_variables-1]),
+            set(list(range(number_of_input_variables-1)))
+        )
+        #print("the shape of the conditional nudge is {}".format(cond_nudge.shape))
+        #print("the conditional nudge is {}".format(cond_nudge))
+        #print("the conditional nudge is") 
+        #print(cond_nudge)
+        if list(marginal_label)[0] != number_of_input_variables-1:
+            raise ValueError("wrong variables are conditioned on")
 
     nudge_allignments = []
     for i in range(number_of_nudge_states):
@@ -68,10 +75,13 @@ def find_maximum_local_nudge(input_dist, cond_output, nudge_size):
                 #print("the variable index is {}".format(i))
                 states = np.take(cond_nudge, indices=state, 
                                  axis=number_of_input_variables-1)
+                states = states.flatten()
+                #print("the just created states are {}".format(states))
                 scores = np.take(
                     np.reshape(weighted_allignment_scores, input_dist.shape),
                     indices=state, axis=number_of_input_variables-1
                 )
+                scores = scores.flatten()
                 #print("the states are {}, the scores are {}".format(states, scores))
 
                 if nudge_allignment[state] == 1:
@@ -126,6 +136,7 @@ def create_route(states, scores, nudge_size, positive_scores):
         impact on the output variable is height.
     
     """
+    #print("the states are {}".format(states))
     #combo = np.stack([states, scores, positive_scores], axis=1)
     route = []
     lower_states_scores = []
