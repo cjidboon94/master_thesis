@@ -6,7 +6,7 @@ def find_optimal_height_routes(routes, threshold):
     for route in routes:
         opt_list = combine_routes(opt_list, route, threshold)
 
-    return find_height(opt_list)
+    return opt_list, find_height(opt_list)
 
 def combine_routes(opt_route, tracks, threshold):
     """create the optimal combination of two routes
@@ -71,7 +71,7 @@ def find_optimum_list(opt_list, threshold, tracks, path, path_use=0):
     """
     if threshold < 0:
         raise ValueError("threshold should is smaller zero")
-    if path["length"] <= 0 or path["height"] <= 0:
+    if path["length"] <= 0:
         raise ValueError("the values of path should be higher than zero")
     if threshold == 0:
         return opt_list
