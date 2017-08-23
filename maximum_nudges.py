@@ -25,7 +25,6 @@ def find_maximum_local_nudge(input_dist, cond_output, nudge_size):
     number_of_input_states = input_dist.flatten().shape[0]
     number_of_input_variables = len(input_dist.shape)
     number_of_output_states = cond_output.shape[-1]
-
     #print("number of input variables {}".format(number_of_input_variables))
     
     if number_of_input_variables == 1:
@@ -37,11 +36,12 @@ def find_maximum_local_nudge(input_dist, cond_output, nudge_size):
         )
         #print("the shape of the conditional nudge is {}".format(cond_nudge.shape))
         #print("the conditional nudge is {}".format(cond_nudge))
-        #print("the conditional nudge is") 
-        #print(cond_nudge)
         if list(marginal_label)[0] != number_of_input_variables-1:
             raise ValueError("wrong variables are conditioned on")
 
+    other_input_dist = ProbabilityArray(input_dist).marginalize(
+        set(range(number_of_input_variables-1))
+    )
     nudge_allignments = []
     for i in range(number_of_nudge_states):
         states = [-1]*number_of_nudge_states
@@ -65,7 +65,13 @@ def find_maximum_local_nudge(input_dist, cond_output, nudge_size):
             )
             allignment_scores = np.sum(allignment_scores, axis=1)
             #print("the allignment scores are {}".format(allignment_scores))
-            weighted_allignment_scores = input_dist.flatten()*allignment_scores
+
+            weights = np.repeat(other_input_dist.flatten(), input_dist.shape[-1])
+            #print("the weights are {}".format(weights))
+            weighted_allignment_scores = allignment_scores*weights 
+            #print("the weighted allignment scores are {}".format(
+            #    weighted_allignment_scores
+            #))
 
             positive_scores = []
             negative_states_and_scores = []
@@ -100,7 +106,9 @@ def find_maximum_local_nudge(input_dist, cond_output, nudge_size):
             #impact_negative_nudge = combining_routes.find_optimal_height_routes(routes, nudge_size)
             impact_positive_nudge = nudge_size * sum(positive_scores)
             
-            #print("")
+            #print("the positive impact {}".format(impact_positive_nudge))
+            #print("the negative impact {}".format(impact_negative_nudge))
+
             if impact_positive_nudge+impact_negative_nudge > max_impact:
                 #print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                 #print("the optimal route is {}".format(optimal_route))
