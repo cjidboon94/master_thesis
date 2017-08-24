@@ -80,6 +80,7 @@ class ProbabilityArray():
             The variables that are NOT conditioned on
         conditional_labels: list of integers
             The variables that are conditioned on
+
 	"""
         joint_distribution, marginal_labels, conditional_labels = (
             self.find_joint_marginal(marginal_variables, conditional_variables)
