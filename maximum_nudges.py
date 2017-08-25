@@ -4,6 +4,136 @@ import probability_distributions
 from probability_distributions import ProbabilityArray
 import combining_routes
 
+def find_max_control_impact(input_dist, cond_output, nudge_size):
+    """
+    Find the maximum nudge output, defined as the abs difference between
+    the old and the new output state.
+
+    Parameters:
+    ----------
+    input_dist: a numpy array
+        Representing the input distribution
+    cond_output: a numpy array
+        Representing the conditional probabilities of the output given 
+        the input. The first N-1 variables (axes) should represent the
+        input variables while the output should be the last axis.
+    nudge_size: A number
+
+    Returns: nudge, nudge_size
+    -------
+    nudge: a list of tuples
+        The nudge that gives the maximum impact.
+        Every tuple consist of an integer representing the nudge state on 
+        the flattened input array and a number representing the nudge size
+        on this state.
+    nudge_size: The impact size of this nudge, defined as the max difference
+
+    """
+    number_of_input_vars = input_dist.flatten().shape[0]
+    max_impact, max_nudge_states, max_nudge_sizes = 0, [], []
+    for output_nudge_state in itertools.product([-1, 1], repeat=cond_output.shape[-1]):
+        if all([state==-1 for state in output_nudge_state]) or all([state==1 for state in output_nudge_state]):
+            continue
+
+        allignment = cond_output.flatten() * np.array(output_nudge_state*number_of_input_vars)
+        allignment_scores = np.sum(
+            np.reshape(allignment, (number_of_input_vars, len(output_nudge_state))),
+            axis=1
+        )
+        if output_nudge_state == (-1, -1, 1):
+            print(allignment_scores)
+
+        #print(output_nudge_state)
+        nudge_states, nudge_sizes, nudge_impact = find_max_nudge_impact(
+            allignment_scores, input_dist.flatten(), nudge_size
+        )
+        #print("nudge states {}".format(nudge_states))
+        #print("nudge sizes {}".format(nudge_sizes))
+        #print("nudge_impact {}".format(nudge_impact))
+
+        if nudge_impact > max_impact:
+            max_impact = nudge_impact
+            max_nudge_states, max_nudge_sizes = nudge_states, nudge_sizes
+
+    return max_nudge_states, max_nudge_sizes, max_impact
+
+def find_max_nudge_impact(scores, weights, nudge_size):
+    """
+    Find the nudge that pushes the output variable maximally towards the 
+    output state
+
+    Parameters:
+    ----------
+    scores: 1-D nd-array
+        The alligment scores for the conditional distribution linked to
+        all input states
+    weights: nd-array
+       The flattened input probabilities
+    nudge_size: a number
+
+    Returns: nudge, nudge_impact
+    -------
+    selected states: list
+        The states that will be nudged
+    nudge_sizes: nd-array
+        The nudge size for the corresponding selected state
+    nudge_impact: a number
+        The maximum that that the output can be transformed towards the
+        output state by changing the input state with the nudge size 
+
+    """
+    negative_states, negative_nudge_sizes = find_minimum_subset(
+        weights, scores, nudge_size
+    )
+    positive_state = [np.argmax(scores)]
+    positive_nudge_size = sum(negative_nudge_sizes)
+    selected_states = negative_states + positive_state
+    nudge_sizes = np.zeros(len(selected_states))
+    nudge_sizes[:-1] = -1*negative_nudge_sizes
+    nudge_sizes[-1] = positive_nudge_size
+    nudge_impact = np.sum(scores[selected_states] * nudge_sizes)
+    return selected_states, nudge_sizes, nudge_impact
+
+def find_minimum_subset(weights, scores, total_size):
+    """
+    Find a subset of weights of total_size with the lowest sum in scores.
+    Fractions of scores CAN be taken.
+
+    Note: The selected subset cannot include all of the weights
+
+    Parameters:
+    ----------
+    weights: a 1d nd-array
+    scores: a 1d nd-array with the same length of weights
+    total_size: a number
+
+    Returns: selected_variables, selected_weights, total_impact
+    -------
+    selected_variables: list
+    selected_weights: nd-array 
+        The corresponding weights for the selected_variables
+
+    """
+    #can (probably) be done more efficient for now fine
+    indices = list(range(weights.shape[0]))
+    results = [[weight, score, index] for weight, score, index
+              in zip(weights, scores, indices)]
+    results_sorted = sorted(results, key=lambda x: x[1])
+    weights_sorted, scores_sorted, indices_sorted = zip(*results_sorted)
+
+    count = 0
+    minus_weight = 0
+    while minus_weight < total_size and count < len(indices)-1:
+        minus_weight += weights_sorted[count]
+        count += 1
+    
+    selected_indices = list(indices_sorted[:count])
+    selected_weights = weights[selected_indices]
+    selected_weights[-1] = min(total_size-sum(selected_weights[:-1]),
+                               selected_weights[-1])
+    return selected_indices, selected_weights
+
+
 def find_maximum_local_nudge(input_dist, cond_output, nudge_size):
     """
 
