@@ -1,4 +1,6 @@
-def merge_tracks(tracks1, tracks2):
+import combining_routes
+
+def merge_tracks(tracks1, tracks2, threshold):
     """
     Create new tracks which entries are the max of tracks1 and tracks2
 
@@ -14,76 +16,112 @@ def merge_tracks(tracks1, tracks2):
         Tracks which are the maximum of tracks1 and tracks2
 
     """
+    #first ascertain (mostly for numerical errors) that tracks1 and 
+    #tracks2 are shorter in total than the threshold
+    tracks1 = combining_routes.trim_tracks(tracks1, end=threshold)
+    tracks2 = combining_routes.trim_tracks(tracks2, end=threshold)
+
     #lengths have one more item than tracks since they are starting at zero
     lengths1 = create_total_lengths(tracks1)
     lengths2 = create_total_lengths(tracks2)
-    #print("lengths1 {}, lengths2 {}".format(lengths1, lengths2))
-    opt_list = []
-    if lengths1[-1]-lengths2[-1] > 10**(-7):
-        raise ValueError("the tracks should have the same total length")
+    if lengths1[-1] > threshold:
+        if lengths1[-1]-threshold > 10**(-15):
+            raise ValueError("check trim tracks")
+        else:
+            tracks1[-1]["length"] -= (lengths1[-1]-threshold)
+            lengths1[-1] = threshold
+    if lengths2[-1] > threshold:
+        if lengths2[-1]-threshold > 10**(-15):
+            raise ValueError("check trim tracks")
+        else:
+            tracks2[-1]["length"] -= (lengths2[-1]-threshold)
+            lengths2[-1] = threshold
 
+    opt_list = []
     prev_length = 0
     prev_height1, prev_height2 = 0, 0
     new_height1, new_height2 = 0, 0
     pointer1, pointer2 = 0, 0
     new_pointer1, new_pointer2 = 0, 0
-    while pointer1 != len(lengths1)-1 or pointer2 != len(lengths2)-1:
-        #print("")
-        #print("pointer1 {}, pointer2 {}".format(pointer1, pointer2))
-        if lengths1[pointer1+1] > lengths2[pointer2+1]:
-            extra_length = lengths2[pointer2+1]-prev_length
-            new_pointer1 = pointer1
-            new_pointer2 = pointer2 + 1
-        elif lengths1[pointer1+1] == lengths2[pointer2+1]:
-            extra_length = lengths1[pointer1+1]-prev_length
-            new_pointer1 = pointer1 + 1
-            new_pointer2 = pointer2 + 1
-        else:
-            extra_length = lengths1[pointer1+1]-prev_length
-            new_pointer1 = pointer1 + 1
-            new_pointer2 = pointer2
+    try:
+        while pointer1 < len(lengths1) or pointer2 < len(lengths2):
+            if pointer1 == len(lengths1)-1 and pointer2 == len(lengths2)-1:
+                break
+            elif pointer1 == len(lengths1)-1:
+                extra_tracks = combining_routes.trim_tracks(
+                    tracks2, start=lengths1[-1], end=threshold
+                )
+                if extra_tracks != []:
+                    opt_list.extend(extra_tracks)
+                break
+            elif pointer2 == len(lengths2)-1:
+                extra_tracks = combining_routes.trim_tracks(
+                    tracks1, start=lengths2[-1], end=threshold
+                )
+                if extra_tracks != []:
+                    opt_list.extend(extra_tracks)
+                break
+            elif lengths1[pointer1+1] > lengths2[pointer2+1]:
+                extra_length = lengths2[pointer2+1]-prev_length
+                new_pointer1 = pointer1
+                new_pointer2 = pointer2 + 1
+            elif lengths1[pointer1+1] == lengths2[pointer2+1]:
+                extra_length = lengths1[pointer1+1]-prev_length
+                new_pointer1 = pointer1 + 1
+                new_pointer2 = pointer2 + 1
+            else:
+                extra_length = lengths1[pointer1+1]-prev_length
+                new_pointer1 = pointer1 + 1
+                new_pointer2 = pointer2
 
-        #print("the extra length {}".format(extra_length))
-        #print("new_pointer1 {}, new_pointer2 {}".format(new_pointer1, new_pointer2))
+            #print("the extra length {}".format(extra_length))
+            #print("new_pointer1 {}, new_pointer2 {}".format(new_pointer1, new_pointer2))
 
-        height_gain1 = extra_length * tracks1[pointer1]["height"]
-        height_gain2 = extra_length * tracks2[pointer2]["height"]
-        new_height1 = prev_height1 + height_gain1
-        new_height2 = prev_height2 + height_gain2
+            height_gain1 = extra_length * tracks1[pointer1]["height"]
+            height_gain2 = extra_length * tracks2[pointer2]["height"]
+            new_height1 = prev_height1 + height_gain1
+            new_height2 = prev_height2 + height_gain2
 
-        #print("prev height1: {}, prev height 2: {}".format(prev_height1, prev_height2))
-        #print("new height1: {}, new height 2: {}".format(new_height1, new_height2))
+            #print("prev height1: {}, prev height 2: {}".format(prev_height1, prev_height2))
+            #print("new height1: {}, new height 2: {}".format(new_height1, new_height2))
 
-        if prev_height1 >= prev_height2 and new_height1 >= new_height2:
-            opt_list.append({"length":extra_length, 
-                             "height":tracks1[pointer1]["height"]})
-        elif prev_height1 <= prev_height2 and new_height1 <= new_height2:
-            opt_list.append({"length":extra_length,
-                             "height":tracks2[pointer2]["height"]})
-        elif prev_height1 > prev_height2 and new_height1 < new_height2:
-            prev_height_difference = (prev_height1 - prev_height2)
-            gain_diff = tracks2[pointer2]["height"]-tracks1[pointer1]["height"]
-            crossing_point = prev_height_difference/gain_diff
-            opt_list.append({"length":crossing_point, 
-                             "height":tracks1[pointer1]["height"]})
-            opt_list.append({"length":extra_length-crossing_point,
-                             "height":tracks2[pointer2]["height"]})
-        elif prev_height1 < prev_height2 and new_height1 > new_height2:
-            prev_height_difference = (prev_height2 - prev_height1)
-            gain_diff = tracks1[pointer1]["height"]-tracks2[pointer2]["height"]
-            crossing_point = prev_height_difference/gain_diff
-            opt_list.append({"length":crossing_point, 
-                             "height":tracks2[pointer2]["height"]})
-            opt_list.append({"length":extra_length-crossing_point,
-                             "height":tracks1[pointer1]["height"]})
+            if prev_height1 >= prev_height2 and new_height1 >= new_height2:
+                opt_list.append({"length":extra_length, 
+                                 "height":tracks1[pointer1]["height"]})
+            elif prev_height1 <= prev_height2 and new_height1 <= new_height2:
+                opt_list.append({"length":extra_length,
+                                 "height":tracks2[pointer2]["height"]})
+            elif prev_height1 > prev_height2 and new_height1 < new_height2:
+                prev_height_difference = (prev_height1 - prev_height2)
+                gain_diff = tracks2[pointer2]["height"]-tracks1[pointer1]["height"]
+                crossing_point = prev_height_difference/gain_diff
+                opt_list.append({"length":crossing_point, 
+                                 "height":tracks1[pointer1]["height"]})
+                opt_list.append({"length":extra_length-crossing_point,
+                                 "height":tracks2[pointer2]["height"]})
+            elif prev_height1 < prev_height2 and new_height1 > new_height2:
+                prev_height_difference = (prev_height2 - prev_height1)
+                gain_diff = tracks1[pointer1]["height"]-tracks2[pointer2]["height"]
+                crossing_point = prev_height_difference/gain_diff
+                opt_list.append({"length":crossing_point, 
+                                 "height":tracks2[pointer2]["height"]})
+                opt_list.append({"length":extra_length-crossing_point,
+                                 "height":tracks1[pointer1]["height"]})
 
-        #print("the opt_list: {}".format(opt_list))
+            #print("the opt_list: {}".format(opt_list))
 
-        pointer1 = new_pointer1
-        pointer2 = new_pointer2
-        prev_height1 = new_height1
-        prev_height2 = new_height2
-        prev_length += extra_length
+            pointer1 = new_pointer1
+            pointer2 = new_pointer2
+            prev_height1 = new_height1
+            prev_height2 = new_height2
+            prev_length += extra_length
+
+    except IndexError:
+        print(pointer2)
+        print(lengths2)
+        print(pointer1)
+        print(lengths1)
+        raise 
 
     opt_list = merge_duplicates(opt_list)
     #print("after merging duplicates {}".format(opt_list))
@@ -199,6 +237,8 @@ def create_total_lengths(tracks):
     total_length = 0
     total_lengths = [0]
     for track in tracks:
+        if track["length"]==0:
+            continue
         total_length += track["length"]
         total_lengths.append(total_length)
 
