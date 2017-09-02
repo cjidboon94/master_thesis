@@ -126,6 +126,16 @@ class TestCombiningRoutes(unittest.TestCase):
             self.assertAlmostEqual(track["length"], trimmed_tracks[count]["length"])
             self.assertAlmostEqual(track["height"], trimmed_tracks[count]["height"])
 
+    def test5_trim_tracks(self):
+        tracks = [
+            {'length': 0.0011092335708519701, 'height': 0.6977046642789908}, 
+            {'length': 0.0088907664291480309, 'height': 0.88774757794532244}
+        ]
+        new_tracks = combining_routes.trim_tracks(tracks, end=0.01)
+        threshold = 0.01
+        total_length = new_tracks[0]["length"]+new_tracks[1]["length"]
+        self.assertEqual(total_length-(total_length-threshold), threshold)
+
     def test1_find_eq_length(self):
         tracks = [
             {"length":0.8, "height": 1},
@@ -209,7 +219,7 @@ class TestCombiningRoutes(unittest.TestCase):
             {"length":0.6, "height":2.4}
         ]
         last_included_track = combining_routes.find_last_relevant_track(tracks, 4)
-        self.assertEqual(last_included_track, -1)
+        self.assertEqual(last_included_track, 0)
 
     def test2_find_last_relevant_track(self):
         tracks = [
@@ -219,7 +229,7 @@ class TestCombiningRoutes(unittest.TestCase):
             {"length":0.6, "height":2.4}
         ]
         last_included_track = combining_routes.find_last_relevant_track(tracks, 3)
-        self.assertEqual(last_included_track, -1)
+        self.assertEqual(last_included_track, 0)
 
     def test3_find_last_relevant_track(self):
         tracks = [
@@ -229,7 +239,7 @@ class TestCombiningRoutes(unittest.TestCase):
             {"length":0.6, "height":2.4}
         ]
         last_included_track = combining_routes.find_last_relevant_track(tracks, 1.8)
-        self.assertEqual(last_included_track, 3)
+        self.assertEqual(last_included_track, 4)
 
     def test4_find_last_relevant_track(self):
         tracks = [
@@ -239,7 +249,7 @@ class TestCombiningRoutes(unittest.TestCase):
             {"length":0.6, "height":2.4}
         ]
         last_included_track = combining_routes.find_last_relevant_track(tracks, 2.5)
-        self.assertEqual(last_included_track, 2)
+        self.assertEqual(last_included_track, 3)
    
     def test1_find_shift_length(self):
         tracks = [
@@ -261,7 +271,7 @@ class TestCombiningRoutes(unittest.TestCase):
             {"length":0.6, "height":2.4}
         ]
         path = {"length":2 , "height":0.8}
-        self.assertRaises(ValueError, combining_routes.find_shift_length, tracks, path)
+        self.assertRaises(Exception, combining_routes.find_shift_length, tracks, path)
 
     def test3_find_shift_length(self):
         tracks = [
@@ -340,7 +350,22 @@ class TestCombiningRoutes(unittest.TestCase):
         self.assertAlmostEqual(length_till_shift, 0.55)
         self.assertAlmostEqual(shift_length, 3)
 
-    def test1_find_optimum_tracks(self):
+    def test9_find_shift_length(self):
+        tracks = [
+            {'length': 0.001357555252636717, 'height': 0.27323144259972437},
+            {'length': 0.00044454299901235724, 'height': 0.29143638564699315},
+            {'length': 0.0015111441942070921, 'height': 0.28761205180112825},
+            {'length': 0.0044636256720058352, 'height': 0.29966298108692219}
+        ]
+        path = {'length': 0.0022231318821379987, 'height': 0.28167659027887154} 
+        length_till_shift, shift_length = combining_routes.find_shift_length(
+            tracks, path
+        )
+        self.assertTrue(length_till_shift>=0)
+        #print(length_till_shift)
+        #print(shift_length)
+
+    def test1_find_optimum_list(self):
         tracks = [
             {"length":1.0, "height": 2},
             {"length":0.9, "height": 1.6},
@@ -362,7 +387,7 @@ class TestCombiningRoutes(unittest.TestCase):
             self.assertAlmostEqual(track["length"], opt_list[count]["length"])
             self.assertAlmostEqual(track["height"], opt_list[count]["height"])
 
-    def test2_find_optimum_tracks(self):
+    def test2_find_optimum_list(self):
         tracks = [
             {"length":1.0, "height": 2},
             {"length":0.9, "height": 1.6},
@@ -383,7 +408,7 @@ class TestCombiningRoutes(unittest.TestCase):
             self.assertAlmostEqual(track["length"], opt_list[count]["length"])
             self.assertAlmostEqual(track["height"], opt_list[count]["height"])
        
-    def test3_find_optimum_tracks(self):
+    def test3_find_optimum_list(self):
         tracks = [
             {"length":1.0, "height": 2},
             {"length":0.9, "height": 1.6},
@@ -410,12 +435,14 @@ class TestCombiningRoutes(unittest.TestCase):
             self.assertAlmostEqual(track["length"], opt_list[count]["length"])
             self.assertAlmostEqual(track["height"], opt_list[count]["height"])
 
-    def test4_find_optimum_tracks(self):
+    def test4_find_optimum_list(self):
         tracks = []
         path = {"length":1.5, "height":1}
         threshold = 3.5
         old_opt_list = [{"length":2 , "height":0.5}]
-        opt_list = combining_routes.find_optimum_list(old_opt_list, threshold, tracks, path)
+        opt_list = combining_routes.find_optimum_list(
+            old_opt_list, threshold, tracks, path
+        )
         print(opt_list)
         expected_opt_list = [
             {"length":2, "height":0.5},
@@ -425,12 +452,14 @@ class TestCombiningRoutes(unittest.TestCase):
             self.assertAlmostEqual(track["length"], opt_list[count]["length"])
             self.assertAlmostEqual(track["height"], opt_list[count]["height"])
 
-    def test5_find_optimum_tracks(self):
+    def test5_find_optimum_list(self):
         tracks = []
         path = {"length":1.5, "height":1}
         threshold = 1 
         old_opt_list = [{"length":2 , "height":0.5}]
-        opt_list = combining_routes.find_optimum_list(old_opt_list, threshold, tracks, path)
+        opt_list = combining_routes.find_optimum_list(
+            old_opt_list, threshold, tracks, path
+        )
         print(opt_list)
         expected_opt_list = [
             {"length":2, "height":0.5},
@@ -440,7 +469,7 @@ class TestCombiningRoutes(unittest.TestCase):
             self.assertAlmostEqual(track["length"], opt_list[count]["length"])
             self.assertAlmostEqual(track["height"], opt_list[count]["height"])
 
-    def test6_find_optimum_tracks(self):
+    def test6_find_optimum_list(self):
         tracks = [
             {"length":1.0, "height": 3},
             {"length":0.9, "height": 2.6},
@@ -451,7 +480,9 @@ class TestCombiningRoutes(unittest.TestCase):
         path = {"length":1.5, "height":2.5}
         threshold = 4.0
         old_opt_list = []
-        opt_list = combining_routes.find_optimum_list(old_opt_list, threshold, tracks, path)
+        opt_list = combining_routes.find_optimum_list(
+            old_opt_list, threshold, tracks, path
+        )
         print(opt_list)
         expected_opt_list = [
             {"length":1, "height":3},
@@ -463,7 +494,7 @@ class TestCombiningRoutes(unittest.TestCase):
             self.assertAlmostEqual(track["length"], opt_list[count]["length"])
             self.assertAlmostEqual(track["height"], opt_list[count]["height"])
 
-    def test7_find_optimum_tracks(self):
+    def test7_find_optimum_list(self):
         tracks = [
             {"length":0.5, "height": 1.8},
             {"length":1, "height": 1},
@@ -474,7 +505,9 @@ class TestCombiningRoutes(unittest.TestCase):
         path = {"length":2, "height":2}
         threshold = 4.6
         old_opt_list = []
-        opt_list = combining_routes.find_optimum_list(old_opt_list, threshold, tracks, path)
+        opt_list = combining_routes.find_optimum_list(
+            old_opt_list, threshold, tracks, path
+        )
         print(opt_list)
         expected_opt_list = [
             {"length":2, "height":2},
@@ -487,7 +520,7 @@ class TestCombiningRoutes(unittest.TestCase):
             self.assertAlmostEqual(track["length"], opt_list[count]["length"])
             self.assertAlmostEqual(track["height"], opt_list[count]["height"])
 
-    def test8_find_optimum_tracks(self):
+    def test8_find_optimum_list(self):
         tracks = [
             {"length":0.5, "height": 1.8},
             {"length":1, "height": 1},
@@ -498,7 +531,9 @@ class TestCombiningRoutes(unittest.TestCase):
         path = {"length":2, "height":2}
         threshold = 6
         old_opt_list = []
-        opt_list = combining_routes.find_optimum_list(old_opt_list, threshold, tracks, path)
+        opt_list = combining_routes.find_optimum_list(
+            old_opt_list, threshold, tracks, path
+        )
         print(opt_list)
         expected_opt_list = [
             {"length":2, "height":2},
@@ -510,6 +545,21 @@ class TestCombiningRoutes(unittest.TestCase):
         for count, track in enumerate(expected_opt_list):
             self.assertAlmostEqual(track["length"], opt_list[count]["length"])
             self.assertAlmostEqual(track["height"], opt_list[count]["height"])
+
+    def test9_find_optimum_list(self):
+        #so probably the problem is again in find shift length
+        tracks = [
+            {'length': 0.0019061394364962218, 'height': -0.22304613608628371}, 
+            {'length': 0.0012805974611376069, 'height': -0.17942790734837177},
+            {'length': 0.0035474194392551869, 'height': -0.16684866975505908},
+            {'length': 0.0026727699269563964, 'height': -0.15141268570475561},
+            {'length': 0.00059307373615458819, 'height': -0.16761378492166606}
+        ]
+        path = {'length': 0.0045014719163532944, 'height': -0.19081592394007982}
+        threshold = 0.01
+        opt_route = combining_routes.find_optimum_list(
+            [], threshold, tracks, path
+        )
 
     def test1_combine_routes(self):
         opt_route = [
