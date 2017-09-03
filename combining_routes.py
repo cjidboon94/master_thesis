@@ -1,6 +1,7 @@
 import merge
 
 class NumericalError(Exception): pass
+TEST = False 
 
 def find_optimal_height_routes(routes, threshold):
     """return the maximum attained height"""
@@ -35,10 +36,17 @@ def combine_routes(opt_route, tracks, threshold):
     remaining_length = threshold-tracks[0]["length"]
     for count, track in enumerate(tracks[1:]):
         #print("")
-        temp_opt_route = find_optimum_list(
-            tracks[:count+1], remaining_length, 
-            trim_tracks(opt_route, end=remaining_length), track
-        )
+        try:
+            temp_opt_route = find_optimum_list(
+                tracks[:count+1], remaining_length, 
+                trim_tracks(opt_route, end=remaining_length), track
+            )
+        except ValueError:
+            print("in the loop")
+            print("tracks {}".format(trim_tracks(opt_route, end=remaining_length)))
+            print("track {}".format(track))
+            print("threshold {}".format(remaining_length))
+            raise
         #print("temp opt route {}".format(temp_opt_route))
         new_opt_route = merge.merge_tracks(new_opt_route, temp_opt_route, threshold)
         if abs(find_length(new_opt_route)-threshold) > 10**(-12):
@@ -80,14 +88,17 @@ def find_optimum_list(opt_list, threshold, tracks, path, path_use=0):
         Every dict has keys: length, height
         
     """
-    print("")
-    print("in find optimum list")
-    print("tracks are {}".format(tracks))
-    print("path {}".format(path))
+    if TEST:
+        print("")
+        print("in find optimum list")
+        print("tracks are {}".format(tracks))
+        print("path {}".format(path))
+        print("path use {}".format(path_use))
+        print("")
     if threshold < 0:
-        print("threshold {}".format(threshold))
+        #print("threshold {}".format(threshold))
         #check for numerical errors
-        if threshold > -(10**(-10)):
+        if threshold > -(10**(-13)):
             #print("fixed numerical error")
             return opt_list
         else:
@@ -96,6 +107,7 @@ def find_optimum_list(opt_list, threshold, tracks, path, path_use=0):
         raise ValueError("the values of path should be higher than zero")
     #to remove numerical errors
     if path["length"] < 10**(-13):
+        print("removed path since too small")
         return opt_list + trim_tracks(tracks, end=threshold-find_length(opt_list))
     if threshold == 0:
         return opt_list
@@ -106,10 +118,19 @@ def find_optimum_list(opt_list, threshold, tracks, path, path_use=0):
 
     tracks = trim_tracks(tracks, end=threshold+path_use)
     if path_use != 0 and tracks[0]["height"] > path["height"]:
-        print("path use {}".format(path_use))
-        raise ValueError()
+        if abs(tracks[0]["length"]) < 10**(-13):
+            #print("numerical error encountered")
+            tracks = tracks[1:]
+            #print("fixed numerical error")
+        else:
+            print(path_use)
+            print(tracks)
+            print("threshold {}".format(threshold))
+            raise ValueError()
 
     while tracks[0]["height"] >= path["height"]:
+        if TEST:
+            print("in the while")
         add_length = min(tracks[0]["length"], path_use)
         path_use -= add_length
         threshold -= (tracks[0]["length"]-add_length)
@@ -129,8 +150,9 @@ def find_optimum_list(opt_list, threshold, tracks, path, path_use=0):
         length_till_higher_height = -1
         eq_length = -1
 
-    print("the eq length is {}".format(eq_length))
-    print("higher track {}".format(higher_track))
+    if TEST:
+        print("the eq length is {}".format(eq_length))
+        print("higher track {}".format(higher_track))
 
     if length_till_higher_height == -1 or length_till_higher_height >= threshold:
         opt_list.append({"length": remaining_path_length, "height": path["height"]})
@@ -150,13 +172,16 @@ def find_optimum_list(opt_list, threshold, tracks, path, path_use=0):
         path_use = 0
         return find_optimum_list(opt_list, threshold, tracks, path, path_use)
     elif (eq_length > path["length"] or eq_length == -1) and remaining_path_length != 0:
-        print("in the one to last elif")
+        if TEST:
+            print("in the one to last elif")
         opt_list.append({"length": remaining_path_length, "height": path["height"]})
         threshold -= remaining_path_length
         path_use += remaining_path_length
+        #print("remaining path length {}".format(remaining_path_length))
         return find_optimum_list(opt_list, threshold, tracks, path, path_use)
     elif eq_length > path["length"] or eq_length == -1:
-        print("in the last elif")
+        if TEST:
+            print("in the last elif")
         # a very important note is that either 
         # shifted_length equals path_use and then the first track after
         # adjusting can be higher than path height
@@ -174,7 +199,11 @@ def find_optimum_list(opt_list, threshold, tracks, path, path_use=0):
                 - path["height"]*path["length"]
             )
             print("some numerical error the difference is {}".format(difference))
-            if difference > 10**(-12):
+            if abs(difference) > 10**(-12):
+                print("tracks {}".format(tracks))
+                print("path {}".format(path))
+                print("path use {}".format(path_use))
+                print("threshold {}".format(threshold))
                 raise ValueError("difference is too big, program fails")
             else:
                 print("fixed numerical error")
@@ -184,21 +213,21 @@ def find_optimum_list(opt_list, threshold, tracks, path, path_use=0):
                     trim_tracks(tracks, start=path["length"]),
                     path, path_use=0
                 )
-
-        print("length_before shift {}".format(length_before_shift))
-        print("shift length {}".format(shifted_length))
+        if TEST:
+            print("length_before shift {}".format(length_before_shift))
+            print("shift length {}".format(shifted_length))
         if threshold < length_before_shift:
             opt_list.extend(trim_tracks(tracks, end=threshold))
             return opt_list
    
         path_use -= shifted_length
-        print("the path use is {}".format(path_use))
+        if TEST:
+            print("the path use is {}".format(path_use))
         threshold -= length_before_shift
         opt_list.extend(trim_tracks(tracks, end=length_before_shift))
         tracks = trim_tracks(
             tracks, start=length_before_shift+shifted_length
         )
-        print("the new tracks are {}".format(tracks))
         return find_optimum_list(opt_list, threshold, tracks, path, path_use)
 
 def find_shift_length(tracks, path, extra_length=0):
@@ -216,18 +245,24 @@ def find_shift_length(tracks, path, extra_length=0):
         How much length is shifted
 
     """
-    #print("")
-    #print("in function the extra lenght is {}".format(extra_length))
-    #print(tracks)
-    #print("the path is {}".format(path))
-    #print("")
+    if TEST:
+        print("")
+        print("in find shift length the extra lenght is {}".format(extra_length))
+        print(tracks)
+        print("the path is {}".format(path))
+        print("")
     total_path_height = path["height"]*path["length"]
     #print("the total path height is {}".format(total_path_height))
     #print("total height tracks {}".format(
     #    find_height(trim_tracks(tracks, end=path["length"]))
     #))
     if find_height(trim_tracks(tracks, end=path["length"])) > total_path_height:
-        raise NumericalError()
+        difference = (total_path_height 
+                      - find_height(trim_tracks(tracks, end=path["length"])))
+        if abs(difference) < 10**(-13):
+            return extra_length, path["length"] 
+        else:
+            raise NumericalError()
     
     higher_track = find_track_higher_height(tracks, path["height"])
     #print("higher track {}".format(higher_track))
@@ -238,15 +273,21 @@ def find_shift_length(tracks, path, extra_length=0):
     length_till_higher_track = find_length(tracks[:higher_track])
     #print("length till higher track {}".format(length_till_higher_track))
     if length_till_higher_track > path['length']:
+        if TEST:
+            print("in the if")
         extra_length += length_till_higher_track - path["length"]
         tracks = trim_tracks(tracks, 
                              start=length_till_higher_track-path["length"])
         return find_shift_length(tracks, path, extra_length)
     elif length_till_higher_track+tracks[higher_track]["length"] > path['length']: 
+        if TEST:
+            print("in the elif")
         next_length = min(
             tracks[0]["length"],
             find_length(tracks[:higher_track+1])-path["length"]
         )
+        if TEST:
+            print(next_length)
         new_tracks = trim_tracks(tracks, start=next_length,
                                  end=path["length"]+next_length)
         height_new_tracks = find_height(new_tracks)
@@ -262,11 +303,14 @@ def find_shift_length(tracks, path, extra_length=0):
             length_till_shift = start_difference/gain_per_length
             return length_till_shift+extra_length, path["length"]
     else:
+        if TEST:
+            print("in the else")
         tracks_after_path_length = trim_tracks(tracks, start=path["length"])
         next_length = min(
             tracks[0]["length"], tracks_after_path_length[0]["length"]
         )
-        #print("the next length is {}".format(next_length))
+        if TEST:
+            print("the next length is {}".format(next_length))
         new_track = trim_tracks([tracks_after_path_length[0]], end=next_length)[0]
         old_tracks = trim_tracks(tracks, end=path["length"])
         new_tracks = trim_tracks(tracks, end=path["length"]+next_length)
@@ -278,6 +322,8 @@ def find_shift_length(tracks, path, extra_length=0):
         last_included_track_old = (higher_track+1) + last_track_old
         
         optimal_old_tracks = old_tracks[:last_included_track_old]
+        if TEST:
+            print("optimal old tracks {}".format(optimal_old_tracks))
         optimal_height_old = find_height(optimal_old_tracks)
         optimal_length_old = find_length(optimal_old_tracks)
         if optimal_height_old > path["height"]*optimal_length_old:
@@ -291,8 +337,15 @@ def find_shift_length(tracks, path, extra_length=0):
             print("path length {}".format(path["length"]))
             raise NumericalError()
 
+        length_old_included_tracks = find_length(
+            old_tracks[:last_included_track_old]
+        )
+        #print("new tracks {}".format(
+        #    trim_tracks(new_tracks, start=length_old_included_tracks)
+        #))
         eq_length_usage_new_track = find_eq_length(
-            new_tracks[last_included_track_old:], path["height"]
+            trim_tracks(new_tracks, start=length_old_included_tracks),
+            path["height"]
         )
         if eq_length_usage_new_track == -1:
             optimal_new_tracks = trim_tracks(
@@ -300,37 +353,51 @@ def find_shift_length(tracks, path, extra_length=0):
             )
         else:
             optimal_new_tracks = trim_tracks(new_tracks, start=next_length)
+            #print(find_length(optimal_new_tracks))
             length_previous_not_included_tracks = find_length(
                 old_tracks[last_included_track_old:]
             )
             length_to_add_for_eq = (eq_length_usage_new_track
                                     - length_previous_not_included_tracks)
 
-        #print("the eq length for the new track {}".format(eq_length_usage_new_track))
-        #print("optimal new tracks".format(optimal_new_tracks))
+        if TEST:
+            print("the eq length for the new track {}".format(eq_length_usage_new_track))
+            print("optimal new tracks {}".format(optimal_new_tracks))
+            print("the length of opt new tracks {}".format(
+                find_length(optimal_new_tracks)
+            ))
 
         optimal_length = find_length(optimal_new_tracks)
         optimal_height = find_height(optimal_new_tracks)
         #print("opt length {}, height {}".format(optimal_length, optimal_height))
         #print("opt path height {}".format(optimal_length*path["height"]))
         if optimal_height < optimal_length*path["height"]:
-            #print("in the if")
+            if TEST:
+                print("in the if")
             new_tracks = trim_tracks(tracks, start=next_length)
             return find_shift_length(new_tracks, path, extra_length+next_length)
         elif optimal_height == optimal_length*path["height"]:
             return next_length+extra_length, optimal_length
         else:
+            if TEST:
+                print("in the second else")
             start_difference = (path["height"]*find_length(optimal_old_tracks)
                                 - find_height(optimal_old_tracks))
             #print("start difference {}".format(start_difference))
             first_gain = path["height"]-tracks[0]["height"]
             #print(first_gain)
             eq_length = start_difference/first_gain
+            if TEST:
+                print("eq length {}".format(eq_length))
             if eq_length_usage_new_track == -1 or eq_length<length_to_add_for_eq:
-                shift_length = optimal_length + (next_length-eq_length)
+                #shift_length = optimal_length + (next_length-eq_length)
+                shift_length = optimal_length_old - eq_length
                 return eq_length+extra_length, shift_length
             else:
+                #print("in the third else")
+                #print("start difference {}".format(start_difference))
                 start_difference -= first_gain*length_to_add_for_eq
+                #print("start difference {}".format(start_difference))
                 #print("start_difference {}".format(start_difference))
                 #print(new_track)
                 gain_per_added_length = new_track["height"]-tracks[0]["height"]

@@ -331,10 +331,12 @@ class TestCombiningRoutes(unittest.TestCase):
             {"length":1, "height": 1.7}
         ]
         path = {"length":1.4, "height":1.8}
-        length_till_shift, shift_length = combining_routes.find_shift_length(tracks, path)
+        length_till_shift, shift_length = combining_routes.find_shift_length(
+            tracks, path
+        )
         print(length_till_shift, shift_length)
         self.assertAlmostEqual(length_till_shift, 0.4875)
-        self.assertAlmostEqual(shift_length, 1.4-0.0875)
+        self.assertAlmostEqual(shift_length, 1.8-0.4875)
 
     def test8_find_shift_length(self):
         tracks = [
@@ -364,6 +366,21 @@ class TestCombiningRoutes(unittest.TestCase):
         self.assertTrue(length_till_shift>=0)
         #print(length_till_shift)
         #print(shift_length)
+
+    def test10_find_shift_length(self):
+        tracks = [
+            {'length': 0.0019061394364962218, 'height': -0.2230461360862837},
+            {'length': 0.001280597461137607, 'height': -0.17942790734837177},
+            {'length': 0.003547419439255187, 'height': -0.16684866975505908},
+            {'length': 0.0026727699269563964, 'height': -0.1514126857047556},
+            {'length': 0.0005930737361545882, 'height': -0.16761378492166606}
+        ]
+        path = {'length': 0.004501471916353294, 'height': -0.19081592394007982}
+        length_before_shift, shift_length = combining_routes.find_shift_length(
+            tracks, path
+        )
+        #print(length_before_shift)
+        self.assertEqual(shift_length, path["length"])
 
     def test1_find_optimum_list(self):
         tracks = [
@@ -547,7 +564,6 @@ class TestCombiningRoutes(unittest.TestCase):
             self.assertAlmostEqual(track["height"], opt_list[count]["height"])
 
     def test9_find_optimum_list(self):
-        #so probably the problem is again in find shift length
         tracks = [
             {'length': 0.0019061394364962218, 'height': -0.22304613608628371}, 
             {'length': 0.0012805974611376069, 'height': -0.17942790734837177},
@@ -557,6 +573,56 @@ class TestCombiningRoutes(unittest.TestCase):
         ]
         path = {'length': 0.0045014719163532944, 'height': -0.19081592394007982}
         threshold = 0.01
+        opt_route = combining_routes.find_optimum_list(
+            [], threshold, tracks, path
+        )
+
+    def test10_find_optimum_list(self):
+        threshold = 0.01
+        tracks = [
+            {'length': 0.00084789403180791879, 'height': 0.23448309516230831},
+            {'length': 0.0012285759186611484, 'height': 0.23324036207975657},
+            {'length': 0.0019266030665390258, 'height': 0.2330327242277965},
+            {'length': 9.4296078588858301e-05, 'height': 0.23492283715174436},
+            {'length': 0.00031277006708566989, 'height': 0.22411516857094832},
+            {'length': 4.1058012621537562e-06, 'height': 0.22339328159307462},
+            {'length': 0.0013797741130892873, 'height': 0.22788296716113143},
+            {'length': 0.0028259705331712612, 'height': 0.22378119371125113},
+            {'length': 0.00052765220697655046, 'height': 0.22003631481562122},
+            {'length': 0.00077062538463392935, 'height': 0.21754966007241372},
+            {'length': 8.1732798184196848e-05, 'height': 0.21573718945302311}
+        ]
+        path = {'length': 0.00084789403180791879, 'height': 0.23448309516230831}
+        opt_route = combining_routes.find_optimum_list(
+            [], threshold, tracks, path
+        )
+
+    def test11_find_optimum_list(self):
+        tracks = [
+            {'length': 0.00025062494574424579, 'height': 0.5298658136278781},
+            {'length': 0.0014941893570154375, 'height': 0.53781981860961281},
+            {'length': 0.00061166176929072107, 'height': 0.50414035305944505},
+            {'length': 0.002477240484939346, 'height': 0.51011589430167237},
+            {'length': 0.0028098073709598445, 'height': 0.5250412056705448}
+        ]
+        path = {'length': 0.002477240484939346, 'height': 0.51011589430167237}
+        threshold = 0.00764352392795
+        opt_route = combining_routes.find_optimum_list(
+            [], threshold, tracks, path
+        )
+
+    def test12_find_optimum_list(self):
+        tracks = [
+            {'length': 0.0015818624519766198, 'height': 0.26080389330262954},
+            {'length': 0.0023895863196095133, 'height': 0.26350772901313507},
+            {'length': 0.001919040275049572, 'height': 0.26721284616747887},
+            {'length': 0.00063398722027372106, 'height': 0.27249704751316284},
+            {'length': 0.00090645013618520249, 'height': 0.26845843688159043},
+            {'length': 0.001713917479763888, 'height': 0.26945861543539862},
+            {'length': 0.00034247804054427997, 'height': 0.27422459923821024}
+        ]
+        path = {'length': 0.0029284872016562035, 'height': 0.26906053606224278}
+        threshold = 0.0094873219234
         opt_route = combining_routes.find_optimum_list(
             [], threshold, tracks, path
         )
