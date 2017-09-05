@@ -42,11 +42,18 @@ def find_nudge_impact(old_input, new_input, conditional_output, measure="absolut
     else:
         raise ValueError("provide a valid measure")
 
-def control_non_causal(dist, nudge_size):
-    return np.reshape(
-        local_non_causal(dist.flatten(), nudge_size),
-        dist.shape
-    )
+def control_non_causal(dist, nudge_size, without_conditional=False):
+    if not without_conditional:
+        return np.reshape(
+            local_non_causal(dist.flatten(), nudge_size),
+            dist.shape
+        )
+    else:
+        return np.reshape(
+            local_non_causal_without_conditional(dist.flatten(), nudge_size),
+            dist.shape
+        )
+
 
 def local_non_causal(dist, nudge_size):
     """Perform a local non causal nudge
@@ -79,6 +86,45 @@ def local_non_causal(dist, nudge_size):
     new_dist = np.zeros((number_of_other_states, number_of_nudge_states))
     for i in range(number_of_other_states):
         nudged_states = nudge_states(noise_vector, cond_nudge[i])
+        #print("the nudge_states are {}".format(nudged_states))
+        new_dist[i] = other_vars[i] * nudged_states
+
+    new_dist = np.reshape(new_dist, dist.shape)
+    return new_dist
+
+def local_non_causal_without_conditional(dist, nudge_size):
+    """Perform a local non causal nudge
+    
+    Parameters:
+    ----------
+    dist: a numpy array 
+        Representing a distribution, the last variable is the one
+        that will be nudged
+    nudge_size: a number
+
+    """
+    number_of_vars = len(dist.shape)
+    number_of_nudge_states = dist.shape[-1]
+    noise_vector = find_noise_vector(number_of_nudge_states, nudge_size)
+    #print("the noise vector {}".format(noise_vector))
+    if number_of_vars == 1:
+        return nudge_states(noise_vector, dist)
+
+    other_vars = np.sum(dist, axis=number_of_vars-1)
+    other_vars = other_vars.flatten()
+    number_of_other_states = other_vars.flatten().shape[0]
+    dist_reshaped = np.reshape(
+        np.copy(dist), (number_of_other_states, number_of_nudge_states)
+    )
+    #print("other vars {}".format(other_vars))
+
+    new_dist = np.zeros((number_of_other_states, number_of_nudge_states))
+    for i in range(number_of_other_states):
+        if other_vars[i] == 0:
+            new_dist[i] = 0
+            continue
+
+        nudged_states = nudge_states(noise_vector, dist_reshaped[i]/other_vars[i])
         #print("the nudge_states are {}".format(nudged_states))
         new_dist[i] = other_vars[i] * nudged_states
 

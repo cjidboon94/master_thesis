@@ -49,8 +49,10 @@ def combine_routes(opt_route, tracks, threshold):
             raise
         #print("temp opt route {}".format(temp_opt_route))
         new_opt_route = merge.merge_tracks(new_opt_route, temp_opt_route, threshold)
-        if abs(find_length(new_opt_route)-threshold) > 10**(-12):
-            raise ValueError("route should have length threshold")
+        if abs(find_length(new_opt_route)-threshold) > 10**(-7):
+            raise ValueError("length route minus threshold: {}".format(
+                find_length(new_opt_route)-threshold    
+            ))
         #print("new opt route {}".format(new_opt_route))
         remaining_length -= track["length"]
 
@@ -98,7 +100,7 @@ def find_optimum_list(opt_list, threshold, tracks, path, path_use=0):
     if threshold < 0:
         #print("threshold {}".format(threshold))
         #check for numerical errors
-        if threshold > -(10**(-13)):
+        if threshold > -(10**(-14)):
             #print("fixed numerical error")
             return opt_list
         else:
@@ -106,8 +108,8 @@ def find_optimum_list(opt_list, threshold, tracks, path, path_use=0):
     if path["length"] <= 0:
         raise ValueError("the values of path should be higher than zero")
     #to remove numerical errors
-    if path["length"] < 10**(-13):
-        print("removed path since too small")
+    if path["length"] < 10**(-15):
+        #print("removed path since too small")
         return opt_list + trim_tracks(tracks, end=threshold-find_length(opt_list))
     if threshold == 0:
         return opt_list
