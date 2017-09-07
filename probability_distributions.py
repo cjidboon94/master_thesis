@@ -281,7 +281,7 @@ def produce_distribution_with_entropy_evolutionary(
     Parameters:
     ----------
     shape: a tuple of ints
-    entropy_size: the entropy size
+    entropy_size: the entropy size- base 2
     number_of_trials: integer
     population_size: integer
     number_of_children: integer
@@ -337,7 +337,8 @@ def produce_distribution_with_entropy_evolutionary(
         population = zip(*new_population_sorted_scores)[1][:population_size]
         #print(population[0])
         if i%20==0:
-            print(entropy(population[0], base=2), end=" ")
+            pass
+            #print(entropy(population[0], base=2), end=" ")
 
     return population[0]
 
