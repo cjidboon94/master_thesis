@@ -75,7 +75,7 @@ class TestNudge(unittest.TestCase):
         print(new_dist)
         print(np.sum(np.absolute(new_dist-input_dist)))
 
-    def test_global_non_causal_2vars(self):
+    def test_global_non_causal_3vars(self):
         input_dist = np.array([
             [
                 [0.2, 0.05, 0.1],
@@ -88,10 +88,9 @@ class TestNudge(unittest.TestCase):
         ])
         #print(input_dist.shape)
         old_marginal1 = ProbabilityArray(input_dist).marginalize(set([0]))
-        old_marginal2 = ProbabilityArray(input_dist).marginalize(set([2]))
-        #print("old marginals")
-        #print(old_marginal1)
-        print(old_marginal2)
+        old_marginal2 = ProbabilityArray(input_dist).marginalize(set([1]))
+        old_marginal3 = ProbabilityArray(input_dist).marginalize(set([2]))
+        #print("old marginal 2 {}".format(old_marginal2))
         nudge_size = 0.01
         new_dist = nudge_new.global_non_causal(input_dist, [0,1], nudge_size)
         #print("new dist {}".format(new_dist))
@@ -99,5 +98,9 @@ class TestNudge(unittest.TestCase):
                                nudge_size)
         #print("new_marginals")
         #print(ProbabilityArray(new_dist).marginalize(set([0])))
-        print(ProbabilityArray(new_dist).marginalize(set([2])))
+        new_marginal1 = ProbabilityArray(new_dist).marginalize(set([0]))
+        new_marginal2 = ProbabilityArray(new_dist).marginalize(set([1]))
+        new_marginal3 = ProbabilityArray(new_dist).marginalize(set([2]))
+        #print("new marginal 1 {}".format(new_marginal1))
+        self.assertTrue(np.allclose(old_marginal3, new_marginal3))
 

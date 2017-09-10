@@ -70,17 +70,21 @@ def global_non_causal(dist, nudged_vars, nudge_size):
     old_dist = dist
     new_dist = np.copy(dist)
     total_number_of_vars = len(dist.shape)
+    total_nudge = np.zeros(old_dist.shape)
     for var in nudged_vars:
-        old_dist = np.moveaxis(new_dist, var, total_number_of_vars-1)
-        new_dist = np.moveaxis(new_dist, var, total_number_of_vars-1)
-        new_dist = local_non_causal(new_dist, nudge_size)
-        new_dist = np.moveaxis(new_dist, var, total_number_of_vars-1)
-        old_dist = np.moveaxis(new_dist, var, total_number_of_vars-1)
+        old_dist = np.swapaxes(dist, var, total_number_of_vars-1)
+        new_dist = local_non_causal(old_dist, nudge_size)
+        nudge = new_dist-old_dist
+        old_dist = np.swapaxes(new_dist, var, total_number_of_vars-1)
+        nudge = np.swapaxes(nudge, var, total_number_of_vars-1)
+        total_nudge += nudge
 
-    proposed_nudge_vector = new_dist.flatten()-old_dist.flatten()
-    proposed_nudge_size = np.sum(np.absolute(proposed_nudge_vector))
-    print("the proposed nudge size {}".format(proposed_nudge_size))
-    nudge_vector = proposed_nudge_vector * (nudge_size/proposed_nudge_size)
+    total_nudge_size = np.sum(np.absolute(total_nudge))
+    #print("the total nudge size {}".format(total_nudge_size))
+    #print("unnormalised second marginal {}".format(
+    #    ProbabilityArray(dist+total_nudge).marginalize(set([1]))
+    #))
+    nudge_vector = total_nudge * (nudge_size/total_nudge_size)
     new_dist = np.copy(dist) + np.reshape(nudge_vector, dist.shape)
     return new_dist
 
@@ -98,10 +102,10 @@ def local_non_causal(dist, nudge_size):
     number_of_vars = len(dist.shape)
     number_of_nudge_states = dist.shape[-1]
     noise_vector = find_noise_vector(number_of_nudge_states, nudge_size)
-    print("the noise vector {}".format(noise_vector))
-    print("the l1-norm of the noise vector is {}".format(
-        np.sum(np.absolute(noise_vector))
-    ))
+    #print("the noise vector {}".format(noise_vector))
+    #print("the l1-norm of the noise vector is {}".format(
+    #    np.sum(np.absolute(noise_vector))
+    #))
     if number_of_vars == 1:
         return nudge_states(noise_vector, dist)
 
