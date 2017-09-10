@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
 import nudge_new
+from probability_distributions import ProbabilityArray
 
 class TestNudge(unittest.TestCase):
     def setUp(self):
@@ -58,4 +59,45 @@ class TestNudge(unittest.TestCase):
         ])
         nudge_impact = nudge_new.find_nudge_impact(old_input, new_input, cond_output)
         self.assertAlmostEqual(nudge_impact, 0.0145)
+
+    def test_local_non_causal_2vars(self):
+        input_dist = np.array([
+            [
+                [0.2, 0.05, 0.1],
+                [0.05, 0.1, 0.025],
+            ],
+            [
+                [0.1, 0.08, 0.02],
+                [0.05, 0.025, 0.2]
+            ]
+        ])
+        new_dist = nudge_new.local_non_causal(input_dist, 0.01)
+        print(new_dist)
+        print(np.sum(np.absolute(new_dist-input_dist)))
+
+    def test_global_non_causal_2vars(self):
+        input_dist = np.array([
+            [
+                [0.2, 0.05, 0.1],
+                [0.05, 0.1, 0.025],
+            ],
+            [
+                [0.1, 0.08, 0.02],
+                [0.05, 0.025, 0.2]
+            ]
+        ])
+        #print(input_dist.shape)
+        old_marginal1 = ProbabilityArray(input_dist).marginalize(set([0]))
+        old_marginal2 = ProbabilityArray(input_dist).marginalize(set([2]))
+        #print("old marginals")
+        #print(old_marginal1)
+        print(old_marginal2)
+        nudge_size = 0.01
+        new_dist = nudge_new.global_non_causal(input_dist, [0,1], nudge_size)
+        #print("new dist {}".format(new_dist))
+        self.assertAlmostEqual(np.sum(np.absolute(new_dist-input_dist)), 
+                               nudge_size)
+        #print("new_marginals")
+        #print(ProbabilityArray(new_dist).marginalize(set([0])))
+        print(ProbabilityArray(new_dist).marginalize(set([2])))
 

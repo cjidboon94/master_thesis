@@ -54,6 +54,35 @@ def control_non_causal(dist, nudge_size, without_conditional=False):
             dist.shape
         )
 
+def global_non_causal(dist, nudged_vars, nudge_size):
+    """perform a multiple individual nudges
+
+    Parameters:
+    ----------
+    dist: a numpy array 
+        Representing a distribution, the last variable is the one
+        that will be nudged
+    nudged_vars: a list of ints
+        Representing all the variables that will be nudged
+    nudge_size: a number
+
+    """
+    old_dist = dist
+    new_dist = np.copy(dist)
+    total_number_of_vars = len(dist.shape)
+    for var in nudged_vars:
+        old_dist = np.moveaxis(new_dist, var, total_number_of_vars-1)
+        new_dist = np.moveaxis(new_dist, var, total_number_of_vars-1)
+        new_dist = local_non_causal(new_dist, nudge_size)
+        new_dist = np.moveaxis(new_dist, var, total_number_of_vars-1)
+        old_dist = np.moveaxis(new_dist, var, total_number_of_vars-1)
+
+    proposed_nudge_vector = new_dist.flatten()-old_dist.flatten()
+    proposed_nudge_size = np.sum(np.absolute(proposed_nudge_vector))
+    print("the proposed nudge size {}".format(proposed_nudge_size))
+    nudge_vector = proposed_nudge_vector * (nudge_size/proposed_nudge_size)
+    new_dist = np.copy(dist) + np.reshape(nudge_vector, dist.shape)
+    return new_dist
 
 def local_non_causal(dist, nudge_size):
     """Perform a local non causal nudge
@@ -69,7 +98,10 @@ def local_non_causal(dist, nudge_size):
     number_of_vars = len(dist.shape)
     number_of_nudge_states = dist.shape[-1]
     noise_vector = find_noise_vector(number_of_nudge_states, nudge_size)
-    #print("the noise vector {}".format(noise_vector))
+    print("the noise vector {}".format(noise_vector))
+    print("the l1-norm of the noise vector is {}".format(
+        np.sum(np.absolute(noise_vector))
+    ))
     if number_of_vars == 1:
         return nudge_states(noise_vector, dist)
 
