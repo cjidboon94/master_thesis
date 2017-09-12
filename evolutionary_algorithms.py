@@ -1,21 +1,9 @@
+import random
 import nudge_new as nudge
 import numpy as np
-
-class OptimizeVector():
-    def __init__(initial_population, mutate, evaluate, select_parents,
-                 select_new_population):
-        """
-        Optimize a vector using an evolutionary algorithm
-
-        Parameters:
-        ----------
-        initial_population: list of 1-d numpy arrays
-        mutate: a function 
-            to mutate one member of the population (a 1-d numpy array)
-        evalutate: a function
-
-        """
-        pass
+from scipy.stats import entropy
+from probability_distributions import compute_joint_uniform_random
+from probability_distributions import select_parents
 
 class Individual():
     def __init__(self, genes, timestamp):
@@ -23,69 +11,47 @@ class Individual():
         self.timestamp = timestamp
         self.score = None
 
-class Population():
-    def __init__(self, size):
-        self.population = create_initial_population(size)
-    
-    def evolve(self, number_of_children, generational):
-        parents = select_parents(self.population, number_of_children*2)
-        children = create_children(parents, number_of_children)
-        evaluate(children)
-        self.population = select_new_population(
-            self.population, children, len(self.population), generational
-        )
+    def evaluate(self):
+        raise NotImplementedError()
 
-    def get_sorted():
-        for individual in population:
+    def mutate(self, mutation_size):
+        raise NotImplementedError()
+
+class Population():
+    def __init__(self, individuals):
+        """
+        Population to find optimal solution
+
+        Parameters:
+        ----------
+        individuals: a list of individuals 
+
+        """
+        self.individuals = individuals
+    
+    def get_sorted(self):
+        for individual in self.individuals:
             if individual.score is None:
                 raise ValueError("all individuals should have scores")
 
-        return sorted(self.population, key=lambda x: x["score"])
+        return sorted(self.individuals, key=lambda x: x.score)
 
-def create_initial_population(size):
-    raise NotImplementedError()
+class EvolvePopulation():
+    def __init__():
+        pass
 
-def select_parents(population, number_of_parents, mode):
-    """
-    Defaults to random selection
+    def create_children(individuals, number_of_children, timestamp):
+        raise NotImplementedError()
 
-    """
-    if mode=="rank_exponential":
-        rank_scores_exponential = 1-np.exp(-1*np.arange(population_size))
-        scores = rank_scores_exponential/np.sum(rank_scores_exponential)
-    else:
-        scores = [1/len(population)] * number_of_parents
+    def select_new_population(self, old_population, 
+                              new_population, size, generational):
+        raise NotImplementedError()
 
-    sorted_population = population.get_sorted()
-    parents = select_parents_universal_stochastic(
-        number_of_parents, sorted_population, scores
-    )
-    return parents
+    def recombine(self, parent1, parent2, timestamp):
+        raise NotImplementedError()
 
-def evaluate(individuals):
-    """
-    add score to individual objects
-
-    Parameters:
-    ----------
-    individuals: a list of Individual objects
-
-    """
-    raise NotImplementedError()
-
-def create_children(individuals, number_of_children):
-    """
-    Create new individuals.
-
-    Parameters:
-    ----------
-    individuals: a list of individual objects
-
-    """
-    raise NotImplementedError()
-
-def select_new_population(old_population, new_population, size, generational):
-    raise NotImplementedError()
+    def evolve(self, number_of_children, generational):
+        raise NotImplementedError()
 
 def select_parents_universal_stochastic(amount_of_parents, sorted_population,
                                         rank_probabilities):
@@ -103,13 +69,15 @@ def select_parents_universal_stochastic(amount_of_parents, sorted_population,
     points = (np.linspace(0, 1, amount_of_parents, False) +
               np.random.uniform(0, 1.0/amount_of_parents))
 
+    #print("the shape of the points {}".format(points.shape))
+
     random.shuffle(population_rank_probabilities)
     population = zip(*population_rank_probabilities)[0]
     rank_probabilities = zip(*population_rank_probabilities)[1]
-    bins = np.zeros(len(sorted_population))
+    bins = np.zeros(len(sorted_population)+1)
     probability_mass = 0 
     for i in range(len(sorted_population)):
-        bins[i] = rank_probabilities[i] + probability_mass
+        bins[i+1] = rank_probabilities[i] + probability_mass
         probability_mass += rank_probabilities[i]
 
     parent_indices, _ = np.histogram(points, bins)
@@ -120,13 +88,13 @@ def select_parents_universal_stochastic(amount_of_parents, sorted_population,
 
     return parents
 
-def mutate_distribution(distribution, mutation_size):
+def mutate_distribution_uniform(distribution, mutation_size):
     """
     Mutate the probability distribution
 
     Parameters:
     ----------
-    distribution: a numpy array
+    distribution: a 1d nd-array
     mutation_size: a float
 
     """
@@ -141,10 +109,227 @@ def mutate_distribution(distribution, mutation_size):
 
     return mutated_distribution
 
+class IndividualDistributionEntropy(Individual):
+    def __init__(self, genes, timestamp):
+        """create an individual for an individual algorithms
+
+        Parameters:
+        ----------
+        genes: a 1d nd-array
+        entropy_goal: a number
+        timestamp: a number
+
+        """
+        self.genes = genes
+        self.timestamp = timestamp
+        self.score = None
+
+    @classmethod
+    def create_random_individual(cls, length_of_genes, mode,
+                                 number_of_peaks, timestamp):
+        genes = cls.create_genes(length_of_genes, mode, number_of_peaks)
+        return cls(genes, timestamp)
+
+    def mutate(self, mutation_size):
+        self.genes = mutate_distribution_uniform(self.genes, mutation_size)
+        return self
+
+    def evaluate(self, entropy_goal):
+        """calculate the absolute difference with entropy and entropy goal"""
+        self.score = abs(entropy_goal-entropy(self.genes.flatten(), base=2))
+
+    @staticmethod
+    def create_genes(length_of_genes, mode="random", number_of_peaks=None):
+        if mode=='peaked':
+            genes = np.zeros(length_of_genes)
+            peaks = np.random.randint(0, length_of_genes, number_of_peaks)
+            peak_size = 1.0/number_of_peaks
+            for peak in peaks:
+                genes[peak] = peak_size
+        elif mode=='random':
+            return np.random.dirichlet(length_of_genes*[1])
+
+class PopulationEntropy(Population):
+    def __init__(self, individuals):
+        """
+        Population to find optimal solution
+
+        Parameters:
+        ----------
+        population: a list of IndividualDistributionEntropy objects
+
+        """
+        self.individuals = individuals
+
+    @classmethod
+    def create_random_population(cls, population_size, length_of_genes, mode,
+                                 number_of_peaks=1, timestamp=0):
+        """
+        Population to find optimal solution
+
+        Parameters:
+        ----------
+        population_size: an integer
+
+        """
+        population = []
+        for i in range(population_size):
+            individual = IndividualDistributionEntropy.create_random_individual(
+                length_of_genes, mode, number_of_peaks, timestamp
+            )
+            population.append(individual)
+
+        return cls(population)
+
+    def __len__(self):
+        return len(self.individuals)
+
+class EvolvePopulationEntropy(EvolvePopulation):
+    def __init__(self, population, goal_entropy, number_of_generations,
+                 number_of_children, parent_selection_mode):
+        """
+        Evolve the population to bring the resulting individuals as
+        close to the goal entropy as possible
+
+        Parameters:
+        ----------
+        population: A PopulationEntropy object
+        goal_entropy: a number
+        number_of_generations: an integer
+        number_of_children: an integer
+
+        """
+        self.population = population
+        self.entropy_goal = goal_entropy
+        self.number_of_generations = number_of_generations
+        self.number_of_children = number_of_children
+        self.parent_selection_mode = parent_selection_mode
+
+    def evolve(self, generational, mutation_size):
+        """
+        Evolve the population
+        
+        Parameters:
+        ----------
+        number_of_children: an integer
+        generational: Boolean
+            Whether to discard the old population at every new timestep
+        parent_selection_mode: Either "rank_exponential" or None
+
+        """
+        for timestep in range(self.number_of_generations):
+            parents = self.select_parents(
+                self.population.individuals, number_of_children*2,
+                self.parent_selection_mode
+            )
+            children = self.create_children(parents, self.number_of_children,
+                                            timestep, mutation_size)
+            for child in children:
+                child.evaluate(self.entropy_goal)
+
+            self.population = self.select_new_population(
+                self.population.individuals, children, len(self.population),
+                generational
+            )
+
+    def select_new_population(self, old_individuals,
+                              new_individuals, size, generational):
+        """
+        Select the new individuals
+
+        Parameters:
+        ----------
+        old_individuals: list of Individual Objects
+        new_individuals: list of Individual Objects
+        size: number
+            The population size
+        generational: Boolean
+            whether to discard the old population
+
+        """
+        if generational:
+            individuals = new_individuals
+        else:
+            individuals = old_individuals+new_individuals
+
+        sorted_population = Population(individuals).get_sorted()
+        return PopulationEntropy(sorted_population[:size])
+
+    def create_children(self, parents, number_of_children, timestamp,
+                        mutation_size):
+        """
+        Create new individuals.
+
+        Parameters:
+        ----------
+        parents: a list of individual objects
+        number_of_children: an integer
+        timestamp: a number
+        mutation_size: a number
+
+        """
+        children = []
+        for i in range(number_of_children):
+            children.append(self.recombine(
+                parents[i], parents[number_of_children+i], timestamp
+            ))
+
+        children = [child.mutate(mutation_size) for child in children]
+        return children
+
+    def recombine(self, parent1, parent2, timestamp):
+        """recombine two individuals to create a new individual
+        
+        Parameters:
+        ----------
+        parent1: Individual object
+        parent2: Individual object
+        timestamp: a number
+
+        Returns: Individual object
+
+        """
+        if np.random.random() > 0.5:
+            genes = np.copy(parent1.genes)
+        else:
+            genes =  np.copy(parent2.genes)
+        
+        return IndividualDistributionEntropy(
+            parent1.genes, timestamp
+        )
+
+    def select_parents(self, individuals, number_of_parents, mode):
+        """
+        Defaults to random selection
+        
+        Parameters:
+        ----------
+        population: list of Individual objects
+        number_of_parents: a number
+        mode: string
+            Either "rank_exponential" or it will be done randomly
+
+        Returns: list of Individual objects
+
+        """
+        #print("number of parents {}".format(number_of_parents))
+        if mode=="rank_exponential":
+            rank_scores_exponential = 1-np.exp(-1*np.arange(len(individuals)))
+            scores = rank_scores_exponential/np.sum(rank_scores_exponential)
+        else:
+            scores = [1/len(individuals)] * number_of_parents
+
+        sorted_individuals = Population(individuals).get_sorted()
+        #print("length sorted individuals {}".format(len(sorted_individuals)))
+        parents = select_parents_universal_stochastic(
+            number_of_parents, sorted_individuals, scores
+        )
+        return parents
+
 def produce_distribution_with_entropy_evolutionary(
         shape, entropy_size, number_of_trials, 
         population_size=10, number_of_children=20,
-        generational=False, initial_dist='peaked', number_of_peaks=1
+        generational=False, initial_dist='random', number_of_peaks=1
         ):
     """
     Produce a distribution with a given entropy
@@ -196,14 +381,18 @@ def produce_distribution_with_entropy_evolutionary(
             mutation_size = 0.1/total_number_of_states
         else:
             mutation_size = 0.05/total_number_of_states
-        children = [mutate_distribution(parent, mutation_size) for parent in parents]
+        children = [
+            mutate_distribution_uniform(parent, mutation_size) 
+            for parent in parents
+        ]
         scores = [abs(entropy_size-entropy(dist.flatten(), base=2)) for dist in children]
         children_scores = list(zip(scores, children))
         if generational:
             new_population_sorted_scores = sorted(children_scores, key=lambda x: x[0])
         else:
-            new_population_sorted_scores = sorted(children_scores+sorted_population_scores, key=lambda x: x[0])
-
+            new_population_sorted_scores = sorted(
+                children_scores+sorted_population_scores, key=lambda x: x[0]
+            )
 
         population = zip(*new_population_sorted_scores)[1][:population_size]
         #print(population[0])
@@ -214,7 +403,35 @@ def produce_distribution_with_entropy_evolutionary(
     return population[0]
 
 if __name__ == "__main__":
-    number_of_trials = 100
-    population = Population(10)
-    for i in range(number_of_trials):
-        population.evolve()
+    distribution_shape = [5]*4
+    number_of_generations = 1000
+    goal_entropy_percentage = 0.85
+    population_size = 10
+    number_of_children = 20
+    generational = False
+    mutation_size = 0.05
+    parent_selection_mode = "rank_exponential"
+    number_of_states = reduce(lambda x,y: x*y, distribution_shape)
+    goal_entropy = np.log2(number_of_states)*goal_entropy_percentage
+    print("the goal entropy {}".format(goal_entropy))
+    initial_population = PopulationEntropy.create_random_population(
+        population_size, number_of_states, "random"
+    )
+    #print(initial_population)
+    for individual in initial_population.individuals:
+        individual.evaluate(goal_entropy)
+
+    evolve = EvolvePopulationEntropy(
+        initial_population, goal_entropy, number_of_generations,
+        number_of_children, parent_selection_mode
+    )
+    evolve.evolve(generational, mutation_size)
+    #print(evolve.population.individuals[0].genes)
+    print("the final entropy {}".format(
+        entropy(evolve.population.individuals[0].genes, base=2
+    )))
+
+    dist = produce_distribution_with_entropy_evolutionary(
+        distribution_shape, goal_entropy, number_of_generations
+    )
+    print(entropy(dist, base=2))
