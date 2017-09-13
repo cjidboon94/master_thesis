@@ -17,7 +17,7 @@ class Individual():
     def mutate(self, mutation_size):
         raise NotImplementedError()
 
-class Population():
+class Population(list):
     def __init__(self, individuals):
         """
         Population to find optimal solution
@@ -27,6 +27,7 @@ class Population():
         individuals: a list of individuals 
 
         """
+        list.__init__(self, individuals)
         self.individuals = individuals
     
     def get_sorted(self):
@@ -104,7 +105,30 @@ def mutate_distribution_uniform(distribution, mutation_size):
 
     mutated_distribution = np.minimum(np.maximum(mutated_distribution + mutation, 0), 1)
     mutated_distribution = mutated_distribution/np.sum(mutated_distribution)
-    if abs(np.sum(mutated_distribution)-1) > 10**-6:
+    if abs(np.sum(mutated_distribution)-1) > 10**-7:
+        raise ValueError()
+
+    return mutated_distribution
+
+def mutate_distribution_uniform_entropy(distribution, mutation_size):
+    """
+    Mutate the probability distribution
+
+    Parameters:
+    ----------
+    distribution: a 1d nd-array
+    mutation_size: a float
+
+    """
+    mutation = np.random.uniform(-mutation_size, mutation_size, distribution.shape)
+    mutation = np.minimum(mutation, distribution)
+    mutated_distribution = np.copy(distribution)
+
+    mutated_distribution = np.minimum(np.maximum(mutated_distribution + mutation, 0), 1)
+    mutated_distribution = mutated_distribution/np.sum(mutated_distribution)
+    if abs(np.sum(mutated_distribution)-1) > 10**-7:
+        raise ValueError()
+    if np.any(mutated_distribution < 0):
         raise ValueError()
 
     return mutated_distribution
@@ -131,7 +155,7 @@ class IndividualDistributionEntropy(Individual):
         return cls(genes, timestamp)
 
     def mutate(self, mutation_size):
-        self.genes = mutate_distribution_uniform(self.genes, mutation_size)
+        self.genes = mutate_distribution_uniform_entropy(self.genes, mutation_size)
         return self
 
     def evaluate(self, entropy_goal):
@@ -159,6 +183,7 @@ class PopulationEntropy(Population):
         population: a list of IndividualDistributionEntropy objects
 
         """
+        list.__init__(self, individuals)
         self.individuals = individuals
 
     @classmethod
@@ -405,7 +430,7 @@ def produce_distribution_with_entropy_evolutionary(
 if __name__ == "__main__":
     distribution_shape = [5]*4
     number_of_generations = 1000
-    goal_entropy_percentage = 0.85
+    goal_entropy_percentage = 0.70
     population_size = 10
     number_of_children = 20
     generational = False
@@ -417,7 +442,7 @@ if __name__ == "__main__":
     initial_population = PopulationEntropy.create_random_population(
         population_size, number_of_states, "random"
     )
-    #print(initial_population)
+    print("entropy initial population {}".format(entropy(initial_population[0].genes, base=2)))
     for individual in initial_population.individuals:
         individual.evaluate(goal_entropy)
 
