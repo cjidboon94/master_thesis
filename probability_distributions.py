@@ -214,10 +214,9 @@ def compute_joint_from_independent_marginals(marginal1, marginal2, marginal_labe
         joint = np.rollaxis(joint, 
                             len(joint.shape)-len(marginal2.shape)+count,
                             marginal_label)
-
     return joint
 
-def mutate_distribution(distribution, mutation_size):
+def mutate_distribution_old(distribution, mutation_size):
     """
     Mutate the probability distribution
 
@@ -238,7 +237,7 @@ def mutate_distribution(distribution, mutation_size):
 
     return mutated_distribution
 
-def select_parents(amount_of_parents, sorted_population, rank_probabilities):
+def select_parents_old(amount_of_parents, sorted_population, rank_probabilities):
     """return the selected parents using stochastic universal selection 
     
     Parameters:
@@ -270,7 +269,7 @@ def select_parents(amount_of_parents, sorted_population, rank_probabilities):
 
     return parents
 
-def produce_distribution_with_entropy_evolutionary(
+def produce_distribution_with_entropy_evolutionary_old(
         shape, entropy_size, number_of_trials, 
         population_size=10, number_of_children=20,
         generational=False, initial_dist='peaked', number_of_peaks=1
@@ -315,7 +314,7 @@ def produce_distribution_with_entropy_evolutionary(
         sorted_population_scores = list(sorted(zip(population_scores, population), 
                                                key=lambda x:x[0]))
         sorted_population = zip(*sorted_population_scores)[1]
-        parents = select_parents(number_of_children, sorted_population,
+        parents = select_parents_old(number_of_children, sorted_population,
                                  rank_exp_probabilities)
         if i<number_of_trials/3.0:
             mutation_size = .3/total_number_of_states
@@ -325,7 +324,7 @@ def produce_distribution_with_entropy_evolutionary(
             mutation_size = 0.1/total_number_of_states
         else:
             mutation_size = 0.05/total_number_of_states
-        children = [mutate_distribution(parent, mutation_size) for parent in parents]
+        children = [mutate_distribution_old(parent, mutation_size) for parent in parents]
         scores = [abs(entropy_size-entropy(dist.flatten(), base=2)) for dist in children]
         children_scores = list(zip(scores, children))
         if generational:
@@ -426,7 +425,7 @@ def remove_zero_marginals(distribution):
 
 def decrease_entropy(distribution, state1, state2, max_difference, set_zero=False):
     """
-    Decrease the entropy of the distribution randomly
+    Decrease the entropy of a distribution by a random amount
 
     Parameters:
     ----------

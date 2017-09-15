@@ -225,14 +225,20 @@ def find_maximum_local_nudge(input_dist, cond_output, nudge_size):
                     negative_states_and_scores.append((states, -1*scores))
             
             #print("the positive scores are {}".format(positive_scores))
-            #print("the negative states and scores {}".format(negative_states_and_scores))
+            #print("the negative states&scores {}".format(negative_states_and_scores))
 
             # The the limiting effect of not being able to perform a nudge fully
             # is already accounted for in the positive nudge
-            routes = create_routes(negative_states_and_scores, nudge_size, positive_scores) 
+            routes = create_routes(
+                negative_states_and_scores, nudge_size, positive_scores
+            ) 
             #print("the routes are {}".format(routes))
-            optimal_route, impact_negative_nudge = combining_routes.find_optimal_height_routes(routes, nudge_size)
-            #impact_negative_nudge = combining_routes.find_optimal_height_routes(routes, nudge_size)
+            optimal_route, impact_negative_nudge = (
+                combining_routes.find_optimal_height_routes(routes, nudge_size)
+            )
+            #impact_negative_nudge = combining_routes.find_optimal_height_routes(
+            #    routes, nudge_size
+            #)
             impact_positive_nudge = nudge_size * sum(positive_scores)
             
             #print("the positive impact {}".format(impact_positive_nudge))
@@ -243,6 +249,7 @@ def find_maximum_local_nudge(input_dist, cond_output, nudge_size):
                 #print("the optimal route is {}".format(optimal_route))
                 #print("the best output allignment is {}".format(output_allignment))
                 #print("the best nudge allignment is {}".format(nudge_allignment))
+                max_optimal_route = optimal_route
                 max_impact = impact_positive_nudge+impact_negative_nudge
             #print("")
 
@@ -355,8 +362,12 @@ def find_maximum_local_nudge_without_conditional(input_dist, cond_output, nudge_
             # is already accounted for in the positive nudge
             routes = create_routes(negative_states_and_scores, nudge_size, positive_scores) 
             #print("the routes are {}".format(routes))
-            optimal_route, impact_negative_nudge = combining_routes.find_optimal_height_routes(routes, nudge_size)
-            #impact_negative_nudge = combining_routes.find_optimal_height_routes(routes, nudge_size)
+            optimal_route, impact_negative_nudge = (
+                combining_routes.find_optimal_height_routes(routes, nudge_size)
+            )
+            #impact_negative_nudge = combining_routes.find_optimal_height_routes(
+            #    routes, nudge_size
+            #)
             impact_positive_nudge = nudge_size * sum(positive_scores)
             
             #print("the positive impact {}".format(impact_positive_nudge))
@@ -367,6 +378,7 @@ def find_maximum_local_nudge_without_conditional(input_dist, cond_output, nudge_
                 #print("the optimal route is {}".format(optimal_route))
                 #print("the best output allignment is {}".format(output_allignment))
                 #print("the best nudge allignment is {}".format(nudge_allignment))
+                max_optimal_route = optimal_route
                 max_impact = impact_positive_nudge+impact_negative_nudge
             #print("")
 
