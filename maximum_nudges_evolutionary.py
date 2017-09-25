@@ -62,7 +62,6 @@ class IndividualNudge(ea.Individual):
         genes = cls.create_genes(number_of_states, nudge_size)
         return cls(genes, timestamp)
 
-    #method does not work just yet
     def mutate(self, mutation_size):
         """
         Mutate the genes of the individual.
@@ -115,25 +114,33 @@ class LocalNudge(ea.Individual):
 
     Attributes:
     ----------
-    weight_to_individual_nudge: a dict
-        The keys are numbers and the values are IndividualNudge objects
+    weights: a numpy array
+        The weight given to every local nudge (should sum to 1).
+    individual_nudges: a list of IndividualNudge objects
+    nudged_vars: a list of ints
+        Which variables are nudged.
     timestamp: an integer
     nudge_size: a number
     score: the impact of the nudge
     mutation_size: a number
     change_mutation_size: a number 
         The size of the change applied to the mutation_size
+    mutation_size_weights: a number
+        How much to mutate the weights
 
     """
-    def __init__(self, weight_to_individual_nudge, start_mutation_size,
-                 change_mutation_size, nudge_size, timestamp):
+    def __init__(self, weights, individual_nudges, nudged_vars, 
+                 start_mutation_size, change_mutation_size, 
+                 mutation_size_weights, nudge_size, timestamp):
         """create LocalNudge object"""
-        self.weight_to_individual_nudge = weight_to_individual_nudge
+        self.weights = weights
+        self.individual_nudges = individual_nudges
+        self.nudged_vars = nudged_vars
+        self.nudge_size = nudge_size
+        self.mutation_size_weights = mutation_size_weights
         self.mutation_size = start_mutation_size
         self.change_mutation_size = change_mutation_size
-        self.nudge_size = nudge_size
-        self.timestamp
-        #maybe split up the weights and the nudges
+        self.timestamp = timestamp
 
     def evaluate(self, start_distribution, cond_output):
         """
@@ -151,10 +158,11 @@ class LocalNudge(ea.Individual):
         """
         noise_vectors = [
             weight*individual_nudge.genes for weight, individual_nudge in
-            self.weight_to_individual_nudge.items
+            zip(self.weights, self.individual_nudges)
         ]
         new_input_dist = nudge.global_non_causal(
-            start_distribution, self.nudge_size, noise_vectors
+            self.nudged_vars, start_distribution, self.nudge_size,
+            noise_vectors
         )
         nudge_impact = nudge.find_nudge_impact(
             start_distribution, new_input_dist, cond_output,
@@ -169,13 +177,47 @@ class LocalNudge(ea.Individual):
         individual nudges)
         
         """
-        mutation_size += np.random.uniform(-self.change_mutation_size, 
-                                           self.change_mutation_size)
+        self.mutation_size += np.random.uniform(
+            -self.change_mutation_size, self.change_mutation_size
+        )
         #update the weights
+        noise_vector = nudge.find(self.weights.shape[0], 
+                                  self.mutation_size_weights)
+        self.weights = nudge.nudge_states(noise_vector, self.weights)
 
         #update the inidividual nudges
-        for individual_nudge in weight_to_individual_nudges
-        
+        for individual_nudge in self.individual_nudges:
+            individual_nudge.mutate(self.mutation_size)
+
+    @classmethod
+    def create_local_nudge(cls, nudged_vars_to_states, nudge_size, 
+                           mutation_size_weights, start_mutation_size, 
+                           change_mutation_size, timestamp=0):
+        """
+        Create an IndividualNudge object randomly
+
+        Parameters:
+        ----------
+        nudge_size: number
+        number_of_states: integer
+        timestamp: integer
+
+        Returns: IndividualNudge object
+
+        """
+        nudged_vars = list(nudged_vars_to_states.keys())
+        individual_nudges = []
+        for number_of_states in nudged_vars_to_states.values(): 
+            individual_nudges.append(IndividualNudge.create_random_individual(
+                number_of_states, nudge_size, timestamp
+            ))
+        weights = np.random.dirichlet([1]*len(nudged_vars))
+
+        return cls(
+            weights, individual_nudges, nudged_vars, start_mutation_size,
+            change_mutation_size, mutation_size_weights, nudge_size, timestamp
+        )
+       
 def create_individual_nudges(number_of_individuals, number_of_states, 
                              nudge_size, timestamp=0):
     """
@@ -322,6 +364,156 @@ class FindMaximumIndividualNudge():
         
         return IndividualNudge(genes, timestamp)
 
+class FindMaximumLocalNudge():
+    """ 
+    A class to find the maximal individual nudge
+
+    Attributes:
+    ----------
+    start_distribution: nd-array
+        Representing a probability distribution
+    cond_output: nd-array
+        Representing the output conditioned on the input
+    nudge_size: a number
+        The nudge_size on the input distribution.
+    generational: Boolean
+        Whether to discard the old individuals at every new timestep
+    number_of_children: an integer
+    parent_selection_mode: Either "rank_exponential" or None
+
+    """
+    def __init__(self, start_distribution, cond_output, nudge_size, 
+                 generational, number_of_children, parent_selection_mode):
+        """Create a FindMaximumIndividualNudge object"""
+        self.start_distribution = start_distribution
+        self.cond_output = cond_output
+        self.nudge_size = nudge_size
+        self.generational = generational
+        self.number_of_children = number_of_children
+        self.parent_selection_mode = parent_selection_mode
+
+    def get_max_nudge(self, individuals, number_of_generations):
+        """
+        Find the maximum individual nudge.
+
+        Parameters:
+        ----------
+        number_of_generations: an integer
+        mutation_size: a number
+        individuals: list of IndividualNudge objects
+ 
+        Returns:
+        -------
+        A numpy array which represents the maximum individual nudge
+        for the start distribution.
+
+        """
+        population = individuals
+        scores = []
+        for timestep in range(number_of_generations):
+            print("the timestep is {}".format(timestep))
+            population = self.evolve(population, mutation_size, timestep)
+            scores.append(population[0].score)
+            #print("best score {}".format(population[0].score))
+            #print("worst score {}".format(population[-1].score))
+
+        return ea.sort_individuals(population)[0]
+
+    def evolve(self, individuals, mutation_size, timestep):
+        """
+        Evolve the population
+        
+        Parameters:
+        ----------
+        mutation_size: a number
+
+        Returns: a list of IndividualNudge Objects
+
+        """
+        parents = ea.select_parents(individuals, self.number_of_children*2,
+                                 self.parent_selection_mode)
+        children = self.create_children(parents, self.number_of_children,
+                                        timestep, mutation_size)
+        for child in children:
+            child.evaluate(self.start_distribution, self.cond_output)
+
+        return ea.select_new_population(individuals, children, len(individuals),
+                                        self.generational)
+
+    def create_children(self, parents, number_of_children, timestamp):
+        """
+        Create new individuals.
+
+        Parameters:
+        ----------
+        parents: a list of individual objects
+        number_of_children: an integer
+        timestamp: a number
+        mutation_size: a number
+
+        """
+        children = []
+        for i in range(number_of_children):
+            children.append(self.recombine(
+                parents[i], parents[number_of_children+i], timestamp
+            ))
+        for child in children:
+            child.mutate()
+
+        return children
+
+    def recombine(self, parent1, parent2, timestamp):
+        """recombine two LocalNudges to create a new individual
+        
+        Parameters:
+        ----------
+        parent1: LocalNudge object
+        parent2: LocalNudge object
+        timestamp: a number
+
+        Returns: LocalNudge object
+
+        """
+        new_nudged_vars = parent.nudged_vars
+        new_nudge_size = parent.nudge_size
+        if np.random.random() > 0.5:
+            new_timestamp = parent1.timestamp
+            new_weights = np.copy(parent1.weights)
+            new_individual_nudges = []
+            for individual_nudge in parent1.individual_nudges:
+                new_individual_nudge = IndividualNudge(
+                    np.copy(individual_nudge.genes), new_timestamp
+                )
+                new_individual_nudges.append(new_individual_nudge)
+        else:
+            new_timestamp = parent2.timestamp
+            new_weights = np.copy(parent2.weights)
+            new_individual_nudges = []
+            for individual_nudge in parent2.individual_nudges:
+                new_individual_nudge = IndividualNudge(
+                    np.copy(individual_nudge.genes), new_timestamp
+                )
+                new_individual_nudges.append(new_individual_nudge)
+        
+        if np.random.random > 0.5:
+            new_mutation_size_weights = parent1.mutation_size_weights
+        else:
+            new_mutation_size_weights = parent2.mutation_size_weights
+
+        if np.random.random > 0.5:
+            new_mutation_size = parent1.mutation_size    
+        else:
+            new_mutation_size = parent2.mutation_size    
+
+        if np.random.random > 0.5:
+            new_change_mutation_size = parent1.change_mutation_size
+        else:
+            new_change_mutation_size = parent2.change_mutation_size
+        
+        return LocalNudge(new_weights, new_individual_nudges, new_nudged_vars,
+                          new_mutation_size, new_change_mutation_size, 
+                          new_mutation_size_weights, new_nudge_size, new_timestamp)
+
 if __name__ == "__main__":
     #distribution parameters
     input_variables = 6
@@ -340,14 +532,44 @@ if __name__ == "__main__":
     cond_output = np.reshape(cond_output, cond_shape)
 
     #local nudge optimization
-    number_of_generations = 50
+    number_of_generations = 100
     population_size = 10
-    number_of_children = 10 
-    generational = False 
+    number_of_children = 20 
+    generational = True 
     mutation_size = nudge_size/4
     parent_selection_mode = "rank_exponential"
     #parent_selection_mode = None
+    mutation_size_weights = 0.03
+    start_mutation_size = nudge_size/10
+    change_mutation_size = start_mutation_size/10
+    nudged_vars_to_states = {
+        nudged_var:number_of_states for nudged_var in range(input_variables)
+    }
+    local_nudges = []
+    for _ in range(population_size):
+        new_local_nudge = LocalNudge.create_local_nudge(
+            nudged_vars_to_states, nudge_size, mutation_size_weights,
+            start_mutation_size, change_mutation_size, timestamp=0
+        )
+        local_nudges.append(new_local_nudge)
+    for local_nudge in local_nudges:
+        local_nudge.evaluate(input_dist, cond_output)
 
+    print("initial impact local nudge {}".format(
+        ea.sort_individuals(local_nudges)[0].score
+    ))
+    find_max_local_nudge = FindMaximumLocalNudge(
+        start_distribution, cond_output, nudge_size, 
+        generational, number_of_children, parent_selection_mode
+    )
+    max_local_nudge_individual = find_max_local_nudge.get_max_nudge(
+        individuals, number_of_generations
+    )
+    print("the found max impact for a local nudge {}".format(
+        max_local_nudge_individual.score
+    ))
+
+    #individual nudge optimization
 
     #evolutionary algorithm parameters
     number_of_generations = 50
@@ -358,7 +580,6 @@ if __name__ == "__main__":
     parent_selection_mode = "rank_exponential"
     #parent_selection_mode = None
 
-    #individual nudge optimization
     individuals = create_individual_nudges(
         population_size, number_of_states, nudge_size, "random"
     )
