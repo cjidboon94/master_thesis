@@ -2,6 +2,8 @@ import numpy as np
 from probability_distributions import ProbabilityArray
 import probability_distributions
 
+np.seterr(all='warn')
+
 def find_nudge_impact(old_input, new_input, conditional_output, measure="absolute"):
     """
     Find the impact of a nudge transforming the old input into
@@ -42,20 +44,21 @@ def find_nudge_impact(old_input, new_input, conditional_output, measure="absolut
     else:
         raise ValueError("provide a valid measure")
 
-def control_non_causal(dist, nudge_size, without_conditional=False):
+def nudge_global(dist, nudge_size, without_conditional=False):
     if not without_conditional:
         return np.reshape(
-            local_non_causal(dist.flatten(), nudge_size),
+            nudge_individual(dist.flatten(), nudge_size),
             dist.shape
         )
     else:
         return np.reshape(
-            local_non_causal_without_conditional(dist.flatten(), nudge_size),
+            nudge_individual_without_conditional(dist.flatten(), nudge_size),
             dist.shape
         )
 
-def global_non_causal(dist, nudged_vars, nudge_size, noise_vectors=None):
-    """perform a multiple individual nudges
+def nudge_local(dist, nudged_vars, nudge_size, noise_vectors=None,
+                without_conditional=False):
+    """perform multiple individual nudges
 
     Parameters:
     ----------
@@ -65,38 +68,56 @@ def global_non_causal(dist, nudged_vars, nudge_size, noise_vectors=None):
     nudged_vars: a list of ints
         Representing all the variables that will be nudged
     nudge_size: a number
-    noise_vector: a list of 1-d nd-arrays
+    noise_vectors: a list of 1-d nd-arrays
         Every entry is a noise vector to nudge the distribution
 
     """
+    if len(dist.shape) == 1:
+        raise ValueError("cannot do local nudge on 1-d dist, use individual")
     old_dist = dist
     new_dist = np.copy(dist)
     total_number_of_vars = len(dist.shape)
     total_nudge = np.zeros(old_dist.shape)
     for count, var in enumerate(nudged_vars):
-        old_dist = np.swapaxes(dist, var, total_number_of_vars-1)
-        if noise_vectors is None:
-            new_dist = local_non_causal(old_dist, nudge_size)
-        else:
-            new_dist = local_non_causal(old_dist, nudge_size,
-                                        noise_vector[count])
+        #print("the var that will be nudged {}".format(var))
+        #print("the last var {}".format(total_number_of_vars))
+        #print("dist shape {}".format(old_dist.shape))
+        old_dist = np.swapaxes(old_dist, var, total_number_of_vars-1)
+        if noise_vectors is None and not without_conditional:
+            new_dist = nudge_individual(old_dist, nudge_size)
+        elif noise_vectors is None and without_conditional:
+            new_dist = nudge_individual_without_conditional(old_dist, nudge_size)
+        elif noise_vectors is not None and not without_conditional:
+            new_dist = nudge_individual(old_dist, nudge_size,
+                                        noise_vectors[count])
+        elif noise_vectors is not None and without_conditional:
+            new_dist = nudge_individual_without_conditional(
+                old_dist, nudge_size, noise_vectors[count]
+            )
+
         nudge = new_dist-old_dist
+        if abs(np.sum(nudge)) > 10**(-10):
+            raise ValueError("the nudge should sum to zero")
         old_dist = np.swapaxes(new_dist, var, total_number_of_vars-1)
         nudge = np.swapaxes(nudge, var, total_number_of_vars-1)
         total_nudge += nudge
 
+    if abs(np.sum(total_nudge)) > 10**(-10):
+        raise ValueError("total nudge should sum sum to zero")
     total_nudge_size = np.sum(np.absolute(total_nudge))
     #print("the total nudge size {}".format(total_nudge_size))
     #print("unnormalised second marginal {}".format(
     #    ProbabilityArray(dist+total_nudge).marginalize(set([1]))
     #))
     nudge_vector = total_nudge * (nudge_size/total_nudge_size)
-    new_dist = nudge_states(np.copy(dist).flatten(), nudge_vector.flatten())
+    new_dist = nudge_states(nudge_vector.flatten(), np.copy(dist).flatten())
     new_dist = np.reshape(new_dist, dist.shape)
     return new_dist
 
-def local_non_causal(dist, nudge_size, noise_vector=None):
-    """Perform a local non causal nudge
+def nudge_individual(dist, nudge_size, noise_vector=None):
+    """
+    Perform a local non causal nudge. The function does not change the
+    old distribution.
     
     Parameters:
     ----------
@@ -106,6 +127,10 @@ def local_non_causal(dist, nudge_size, noise_vector=None):
     nudge_size: a number
     noise_vector: a 1-d nd-array
         The noise vector that is used to nudge the distribution.
+
+    Returns: an nd-array (the new distribution)
+    -------
+    The  returned  array is new object, so 
 
     """
     number_of_vars = len(dist.shape)
@@ -125,7 +150,9 @@ def local_non_causal(dist, nudge_size, noise_vector=None):
     cond_nudge, _, _ = ProbabilityArray(dist).find_conditional(
         set([number_of_vars-1]), set(range(number_of_vars-1))
     )
-    cond_nudge = np.reshape(cond_nudge, (number_of_other_states, number_of_nudge_states))
+    cond_nudge = np.reshape(
+        cond_nudge, (number_of_other_states, number_of_nudge_states)
+    )
     #print("other vars {}".format(other_vars))
     #print("conditional nudge {}".format(cond_nudge))
 
@@ -138,7 +165,7 @@ def local_non_causal(dist, nudge_size, noise_vector=None):
     new_dist = np.reshape(new_dist, dist.shape)
     return new_dist
 
-def local_non_causal_without_conditional(dist, nudge_size):
+def nudge_individual_without_conditional(dist, nudge_size, noise_vector=None):
     """Perform a local non causal nudge
     
     Parameters:
@@ -147,11 +174,13 @@ def local_non_causal_without_conditional(dist, nudge_size):
         Representing a distribution, the last variable is the one
         that will be nudged
     nudge_size: a number
+    noise_vector: a nd-array defaults to None
 
     """
     number_of_vars = len(dist.shape)
     number_of_nudge_states = dist.shape[-1]
-    noise_vector = find_noise_vector(number_of_nudge_states, nudge_size)
+    if noise_vector is None:
+        noise_vector = find_noise_vector(number_of_nudge_states, nudge_size)
     #print("the noise vector {}".format(noise_vector))
     if number_of_vars == 1:
         return nudge_states(noise_vector, dist)
@@ -237,10 +266,22 @@ def nudge_states(noise, probabilities):
         np.absolute(probabilities[negative_states])
     )
     #print("the capped noise {}".format(capped_noise))
+    if np.any(capped_noise[positive_states]):
+        print("the noise {}".format(noise))
+        print("the probabilities {}".format(probabilities))
+
     capped_noise[positive_states] = (
         (np.sum(capped_noise[negative_states])/np.sum(noise[negative_states]))
         * noise[positive_states]
     )
+    if np.any(np.isnan(capped_noise[positive_states])):
+        print(capped_noise[positive_states])
+        print("the negative states {}".format(negative_states))
+        print("sum of the negative states {}".format(np.sum(noise[negative_states])))
+        print("the noise {}".format(noise))
+        print("the probabilities {}".format(probabilities))
+        raise ValueError("sum to 0")
+
     #print("the capped noise {}".format(capped_noise))
     return probabilities+capped_noise
 
@@ -264,6 +305,6 @@ if __name__ == "__main__":
             [0.05, 0.09, 0.01]
         ]
     ])
-    new_dist = local_non_causal(dist_3vars, 0.3)
+    new_dist = nudge_individual(dist_3vars, 0.3)
     ProbabilityArray(new_dist)
     print(new_dist)

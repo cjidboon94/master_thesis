@@ -1,9 +1,7 @@
 import random
-import nudge_new as nudge
+import nudge_non_causal as nudge
 import numpy as np
-from scipy.stats import entropy
 import evolutionary_algorithms as ea
-import nudge_new as nudge
 import probability_distributions
 
 import maximum_nudges
@@ -43,6 +41,10 @@ class IndividualNudge(ea.Individual):
         self.nudge_size = np.sum(np.absolute(genes))
         self.timestamp = timestamp
         self.score = None
+        if abs(np.sum(np.absolute(self.genes))-self.nudge_size) > 10**(-7):
+            raise ValueError()
+        if abs(np.sum(self.genes)) > 10**(-10):
+            raise ValueError()
 
     @classmethod
     def create_random_individual(cls, number_of_states, nudge_size,
@@ -77,6 +79,8 @@ class IndividualNudge(ea.Individual):
         self.genes = self.genes * (nudge_size/norm)
         if abs(np.sum(np.absolute(self.genes))-self.nudge_size) > 10**(-7):
             raise ValueError()
+        if abs(np.sum(self.genes)) > 10**(-10):
+            raise ValueError()
    
     def evaluate(self, start_distribution, cond_output):
         """
@@ -91,7 +95,7 @@ class IndividualNudge(ea.Individual):
             The output conditioned on all input variables
 
         """
-        new_input_dist = nudge.local_non_causal(
+        new_input_dist = nudge.nudge_individual(
             start_distribution, self.nudge_size, self.genes
         )
         nudge_impact = nudge.find_nudge_impact(
@@ -160,9 +164,21 @@ class LocalNudge(ea.Individual):
             weight*individual_nudge.genes for weight, individual_nudge in
             zip(self.weights, self.individual_nudges)
         ]
-        new_input_dist = nudge.global_non_causal(
-            self.nudged_vars, start_distribution, self.nudge_size,
-            noise_vectors
+        not_almost_zero_vectors = [
+            np.sum(np.absolute(vector))>10**(-10) for vector in noise_vectors
+        ]
+        noise_vectors = [vector for count, vector in enumerate(noise_vectors)
+                         if not_almost_zero_vectors[count]]
+        nudged_vars = [var for count, var in enumerate(self.nudged_vars)
+                       if not_almost_zero_vectors[count]]
+
+        for noise in noise_vectors:
+            if abs(np.sum(noise)) > 10**(-10):
+                raise ValueError()
+
+        new_input_dist = nudge.nudge_local(
+            start_distribution, nudged_vars, self.nudge_size,
+            noise_vectors, without_conditional=True
         )
         nudge_impact = nudge.find_nudge_impact(
             start_distribution, new_input_dist, cond_output,
@@ -181,7 +197,7 @@ class LocalNudge(ea.Individual):
             -self.change_mutation_size, self.change_mutation_size
         )
         #update the weights
-        noise_vector = nudge.find(self.weights.shape[0], 
+        noise_vector = nudge.find_noise_vector(self.weights.shape[0], 
                                   self.mutation_size_weights)
         self.weights = nudge.nudge_states(noise_vector, self.weights)
 
@@ -296,8 +312,9 @@ class FindMaximumIndividualNudge():
         for timestep in range(number_of_generations):
             print("the timestep is {}".format(timestep))
             population = self.evolve(population, mutation_size, timestep)
-            #print("best score {}".format(population[0].score))
-            #print("worst score {}".format(population[-1].score))
+            print("best score {}, worst score {}".format(
+                population[0].score, population[-1].score
+            ))
 
         return ea.sort_individuals(population)[0]
 
@@ -412,28 +429,29 @@ class FindMaximumLocalNudge():
         scores = []
         for timestep in range(number_of_generations):
             print("the timestep is {}".format(timestep))
-            population = self.evolve(population, mutation_size, timestep)
+            population = self.evolve(population, timestep)
             scores.append(population[0].score)
-            #print("best score {}".format(population[0].score))
-            #print("worst score {}".format(population[-1].score))
+            print("best score {} worst score {}".format(
+                population[0].score, population[-1].score
+            ))
 
         return ea.sort_individuals(population)[0]
 
-    def evolve(self, individuals, mutation_size, timestep):
+    def evolve(self, individuals, timestep):
         """
         Evolve the population
         
         Parameters:
         ----------
-        mutation_size: a number
+        individuals: a list with LocalNudge objects
 
-        Returns: a list of IndividualNudge Objects
+        Returns: a list of LocalNudge Objects
 
         """
         parents = ea.select_parents(individuals, self.number_of_children*2,
-                                 self.parent_selection_mode)
+                                    self.parent_selection_mode)
         children = self.create_children(parents, self.number_of_children,
-                                        timestep, mutation_size)
+                                        timestep)
         for child in children:
             child.evaluate(self.start_distribution, self.cond_output)
 
@@ -474,8 +492,8 @@ class FindMaximumLocalNudge():
         Returns: LocalNudge object
 
         """
-        new_nudged_vars = parent.nudged_vars
-        new_nudge_size = parent.nudge_size
+        new_nudged_vars = parent1.nudged_vars
+        new_nudge_size = parent1.nudge_size
         if np.random.random() > 0.5:
             new_timestamp = parent1.timestamp
             new_weights = np.copy(parent1.weights)
@@ -532,7 +550,7 @@ if __name__ == "__main__":
     cond_output = np.reshape(cond_output, cond_shape)
 
     #local nudge optimization
-    number_of_generations = 100
+    number_of_generations = 40 
     population_size = 10
     number_of_children = 20 
     generational = True 
@@ -552,6 +570,7 @@ if __name__ == "__main__":
             start_mutation_size, change_mutation_size, timestamp=0
         )
         local_nudges.append(new_local_nudge)
+    #print(local_nudges)
     for local_nudge in local_nudges:
         local_nudge.evaluate(input_dist, cond_output)
 
@@ -559,11 +578,11 @@ if __name__ == "__main__":
         ea.sort_individuals(local_nudges)[0].score
     ))
     find_max_local_nudge = FindMaximumLocalNudge(
-        start_distribution, cond_output, nudge_size, 
+        input_dist, cond_output, nudge_size, 
         generational, number_of_children, parent_selection_mode
     )
     max_local_nudge_individual = find_max_local_nudge.get_max_nudge(
-        individuals, number_of_generations
+        local_nudges, number_of_generations
     )
     print("the found max impact for a local nudge {}".format(
         max_local_nudge_individual.score
