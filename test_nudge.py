@@ -251,63 +251,68 @@ class TestNudge(unittest.TestCase):
         #print(expected_marginal_output)
         self.assertTrue(np.allclose(marginal_output, expected_marginal_output))
 
-    def test_find_max_impact_nudge_to_output_state(self):
-        cond_output = np.array(
-            [
-                [
-                    [0.4, 0.2, 0.4],
-                    [0.3, 0.5, 0.2]
-                ],
-                [
-                    [0.3, 0.3, 0.4],
-                    [0.2, 0.2, 0.6]
-                ]
-            ]
-        )
-        output_state = [1, -1, 1]
+    def test1_find_minimum_subset(self):
+        weights = np.array([0.1, 0.1, 0.2, 0.5, 0.1])
+        scores = np.array([0.8, -0.2, 0.3, 0.6, -0.3])
+        total_size = 0.3
+        states, sizes = nudge.find_minimum_subset(weights, scores, total_size)
+        outcomes = sorted(list(zip(states, sizes)), key=lambda x: x[0])
+        expected_outcomes = sorted(list(zip([1, 2, 4], [0.1, 0.1, 0.1])), key=lambda x: x[0])
+        for count in range(len(states)):
+            state, size = outcomes[count]
+            expected_state, expected_size = expected_outcomes[count]
+            self.assertEqual(state, expected_state)
+            self.assertAlmostEqual(size, expected_size)
+
+    def test1_find_nudge_states_and_sizes(self):
+        allignment_scores = np.array([0.60, 0, 0.4, 0.5])
         input_arr = np.array([0.4, 0.1, 0.1, 0.4])
         nudge_size = 0.3
-        out_nudge, out_impact = nudge.find_max_impact_nudge_to_output_state(
-            cond_output, input_arr, nudge_size, output_state
-        )
-        expected_nudge = [[1, -0.10], [2, -0.10], [3, -0.10], [0, 0.3]]
-        
-        self.assertAlmostEqual(out_impact, 0.08)
-        expected_nudge_sorted = sorted(expected_nudge, key=lambda x: x[0])
-        out_nudge_sorted = sorted(out_nudge, key=lambda x: x[0])
-        for count, nudge_info in enumerate(expected_nudge_sorted):
-            self.assertEqual(nudge_info[0], out_nudge_sorted[count][0])
-            self.assertAlmostEqual(nudge_info[1], out_nudge_sorted[count][1])
 
-    def test2_find_max_impact_nudge_to_output_state(self):
-        cond_output = np.array(
-            [
-                [
-                    [0.8, 0.1, 0.1],
-                    [0.18, 0.52, 0.3]
-                ],
-                [
-                    [0.2, 0.6, 0.2],
-                    [0.05, 0.1, 0.8]
-                ]
-            ]
+        out_nudge_states, out_nudge_sizes, out_impact = nudge.find_nudge_states_and_sizes(
+            allignment_scores, input_arr, nudge_size
         )
-        output_state = [1, -1, -1]
+        self.assertAlmostEqual(out_impact, 0.09)
+
+        out_nudge = sorted(list(zip(out_nudge_states, out_nudge_sizes)),
+                           key=lambda x: x[0])
+
+        expected_nudge_states = [1, 2, 3, 0]
+        expected_nudge_sizes = [-0.1, -0.1, -0.1, 0.3]
+        expected_nudge = sorted(list(zip(expected_nudge_states, expected_nudge_sizes)),
+                                key=lambda x: x[0])
+
+        for count in range(len(out_nudge_states)):
+            state, size = out_nudge[count]
+            expected_state, expected_size = expected_nudge[count]
+            self.assertEqual(state, expected_state)
+            self.assertAlmostEqual(size, expected_size)
+
+    def test2_find_nudge_states_and_sizes(self):
         input_arr = np.array([0.2, 0.25, 0.35, 0.2])
+        allignment_scores = np.array([0.6, -0.64, -0.6, -0.85])
         nudge_size = 0.3
-        out_nudge, out_impact = nudge.find_max_impact_nudge_to_output_state(
-            cond_output, input_arr, nudge_size, output_state
-        )
-        expected_nudge = [[1, -0.10], [3, -0.20], [0, 0.3]]
         
-        self.assertAlmostEqual(out_impact, 0.3*0.6 - 0.2*(-0.85) - 0.1*(-0.64))
-        expected_nudge_sorted = sorted(expected_nudge, key=lambda x: x[0])
-        out_nudge_sorted = sorted(out_nudge, key=lambda x: x[0])
-        for count, nudge_info in enumerate(expected_nudge_sorted):
-            self.assertEqual(nudge_info[0], out_nudge_sorted[count][0])
-            self.assertAlmostEqual(nudge_info[1], out_nudge_sorted[count][1])
+        out_nudge_states, out_nudge_sizes, out_impact = nudge.find_nudge_states_and_sizes(
+            allignment_scores, input_arr, nudge_size
+        )
+        self.assertAlmostEqual(out_impact, 0.3*0.6 - (-0.85*0.2 - 0.64*0.1))
 
-    def test_find_max_impact_global_nudge(self):
+        out_nudge = sorted(list(zip(out_nudge_states, out_nudge_sizes)),
+                           key=lambda x: x[0])
+
+        expected_nudge_states = [1, 3, 0]
+        expected_nudge_sizes = [-0.1, -0.2, 0.3]
+        expected_nudge = sorted(list(zip(expected_nudge_states, expected_nudge_sizes)),
+                                key=lambda x: x[0])
+
+        for count in range(len(out_nudge_states)):
+            state, size = out_nudge[count]
+            expected_state, expected_size = expected_nudge[count]
+            self.assertEqual(state, expected_state)
+            self.assertAlmostEqual(size, expected_size)
+
+    def test1_find_max_local_impact(self):
         input_arr = np.array(
             [
                 [0.1, 0.15, 0.05],
@@ -335,14 +340,61 @@ class TestNudge(unittest.TestCase):
             ]
         )
         nudge_size = 0.2
-        out_max_nudge, out_max_impact = nudge.find_max_impact_global_nudge(input_arr, cond_output, nudge_size)
-        #print(out_max_nudge, out_max_impact)
+        nudge_states = [1]
+        nudge_states, nudge_sizes, max_impact = nudge.find_max_local_impact(
+            input_arr, cond_output, nudge_size, nudge_states
+        )
+        
+        
 
-    def test2_find_max_impact_global_nudge(self):
+    def test1_find_max_global_impact(self):
         input_arr = np.array(
             [
                 [0.1, 0.15, 0.05],
                 [0.2, 0.1, 0.15],
+                [0.1, 0.1, 0.05],
+            ]
+        )
+        cond_output = np.array(
+            [
+                [
+                    [0.3, 0.3, 0.4],
+                    [0.5, 0.0, 0.5],
+                    [0.4, 0.1, 0.5]
+                ],
+                [
+                    [0.4, 0.2, 0.4],
+                    [0.3, 0.35, 0.35],
+                    [0.2, 0.4, 0.4]
+                ],
+                [
+                    [0.1, 0.1, 0.8],
+                    [0.5, 0.2, 0.3],
+                    [0.1, 0.3, 0.6]
+                ]
+            ]
+        )
+        nudge_size = 0.2
+        out_nudge_states, out_nudge_sizes, out_max_impact = nudge.find_max_global_impact(input_arr, cond_output, nudge_size)
+        out_nudge = sorted(list(zip(out_nudge_states, out_nudge_sizes)),
+                           key=lambda x: x[0])
+        #print(out_nudge_states, out_nudge_sizes, out_max_impact)
+        expected_nudge_states = [7, 4, 6]
+        expected_nudge_sizes = [-0.1, -0.1, 0.2]
+        expected_nudge = sorted(list(zip(expected_nudge_states, expected_nudge_sizes)),
+                                key=lambda x: x[0])
+
+        for count in range(len(out_nudge_states)):
+            state, size = out_nudge[count]
+            expected_state, expected_size = expected_nudge[count]
+            self.assertEqual(state, expected_state)
+            self.assertAlmostEqual(size, expected_size)
+
+    def test2_find_max_global_impact(self):
+        input_arr = np.array(
+            [
+                [0.1, 0.15, 0.05],
+                [0.15, 0.1, 0.15],
                 [0.1, 0.1, 0.05],
             ]
         )
@@ -360,12 +412,26 @@ class TestNudge(unittest.TestCase):
                 ],
                 [
                     [0.1, 0.2, 0.25, 0.45],
-                    [0.15, 0.15, 0.4, 0.3],
-                    [0.1, 0.3, 0.3, 0.3]
+                    [0.15, 0.10, 0.4, 0.35],
+                    [0.2, 0.2, 0.3, 0.3]
                 ]
             ]
         )
         nudge_size = 0.3
-        out_max_nudge, out_max_impact = nudge.find_max_impact_global_nudge(input_arr, cond_output, nudge_size)
-        #print(out_max_nudge, out_max_impact)
+        out_nudge_states, out_nudge_sizes, out_max_impact = nudge.find_max_global_impact(input_arr, cond_output, nudge_size)
+        #print(out_nudge_states, out_nudge_sizes, out_max_impact)
+        out_nudge = sorted(list(zip(out_nudge_states, out_nudge_sizes)),
+                           key=lambda x: x[0])
+        #print(out_nudge_states, out_nudge_sizes, out_max_impact)
+        expected_nudge_states = [3, 5, 1]
+        expected_nudge_sizes = [-0.15, -0.15, 0.3]
+        expected_nudge = sorted(list(zip(expected_nudge_states, expected_nudge_sizes)),
+                                key=lambda x: x[0])
+
+        for count in range(len(out_nudge_states)):
+            state, size = out_nudge[count]
+            expected_state, expected_size = expected_nudge[count]
+            self.assertEqual(state, expected_state)
+            self.assertAlmostEqual(size, expected_size)
+
 

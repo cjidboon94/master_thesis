@@ -6,7 +6,7 @@ import random
 
 from jointpdf.jointpdf import JointProbabilityMatrix
 from jointpdf.jointpdf import FullNestedArrayOfProbabilities
-from probability_distributions import JointProbabilityMatrixExtended
+from extension_probability_matrix import JointProbabilityMatrixExtended
 import probability_distributions
 from probability_distributions import ProbabilityArray
 
@@ -242,7 +242,7 @@ def mutate_array_bigger_zero(arr, nudge_size, option):
     nudged_array[plus_mask] = nudged_array[plus_mask] + plus_nudge 
     return nudged_array
 
-def find_max_impact_global_nudge(input_dist, cond_output, nudge_size):
+def find_max_global_impact(input_dist, cond_output, nudge_size):
     """
     Find the maximum nudge output, defined as the abs difference between
     the old and the new output state.
@@ -267,71 +267,35 @@ def find_max_impact_global_nudge(input_dist, cond_output, nudge_size):
     nudge_size: The impact size of this nudge, defined as the max difference
 
     """
-    max_impact = 0
-    max_nudge_states, max_nudge_sizes = [], []
+    number_of_input_vars = input_dist.flatten().shape[0]
+    max_impact, max_nudge_states, max_nudge_sizes = 0, [], []
     for output_nudge_state in itertools.product([-1, 1], repeat=cond_output.shape[-1]):
         if all([state==-1 for state in output_nudge_state]) or all([state==1 for state in output_nudge_state]):
             continue
-        
-        nudge_states, nudge_sizes, nudge_impact = find_max_impact_nudge_to_output_state(
-            cond_output, input_dist.flatten(), nudge_size, 
-            list(output_nudge_state)
+
+        allignment = cond_output.flatten() * np.array(output_nudge_state*number_of_input_vars)
+        allignment_scores = np.sum(
+            np.reshape(allignment, (number_of_input_vars, len(output_nudge_state))),
+            axis=1
         )
+        if output_nudge_state == (-1, -1, 1):
+            print(allignment_scores)
+
+        #print(output_nudge_state)
+        nudge_states, nudge_sizes, nudge_impact = find_nudge_states_and_sizes(
+            allignment_scores, input_dist.flatten(), nudge_size
+        )
+        #print("nudge states {}".format(nudge_states))
+        #print("nudge sizes {}".format(nudge_sizes))
+        #print("nudge_impact {}".format(nudge_impact))
+
         if nudge_impact > max_impact:
             max_impact = nudge_impact
-            max_nudge_states = nudge_states
-            max_nudge_sizes = nudge_sizes
+            max_nudge_states, max_nudge_sizes = nudge_states, nudge_sizes
 
     return max_nudge_states, max_nudge_sizes, max_impact
 
-def find_max_impact_nudge_to_output_state(cond_output, input_arr, nudge_size,
-                                          output_state):
-    """
-    Find the nudge that pushes the output variable maximally towards the 
-    output state
-
-    Parameters:
-    ----------
-    input_arr: a 1-D nd-array
-        Representing the flattened input distribution.
-    cond_output: a nd-array
-       Representing the conditional output distribution the output 
-       variable should be on the last axis.
-    nudge_size: a number
-    output_state: a list
-        With the same length as the number of output states with -1 and 1
-        as entries
-
-    Returns: nudge, nudge_impact
-    -------
-    selected states: list
-        The states that will be nudged
-    nudge_sizes: nd-array
-        The nudge size for the corresponding selected state
-    nudge_impact: a number
-        The maximum that that the output can be transformed towards the
-        output state by changing the input state with the nudge size 
-
-    """
-    print("the output state is {}".format(output_state))
-    allignment = cond_output.flatten() * np.array(output_state*input_arr.shape[0])
-    allignment_scores = np.sum(
-        np.reshape(allignment, (input_arr.shape[0], len(output_state))),
-        axis=1
-    )
-
-    negative_states, negative_nudge_sizes = find_minimum_subset(
-        input_arr, allignment_scores, nudge_size
-    )
-    positive_state = np.argmax(allignment_scores)
-    positive_nudge_size = sum(weights[negative_states])
-    selected_states = negative_states + positive_state
-    nudge_sizes = np.zeros(len(selected_states))
-    nudge_sizes[:-1] = -1*negative_nudge_sizes
-    nudge_sizes[-1] = positive_nudge_size
-    nudge_impact = allignment_scores[selected_states] * nudge_sizes
-    return selected_states, nudge_sizes, nudge_impact 
-
+#not happy with the approach taken here!
 def find_max_local_impact(input_dist, cond_output, nudge_size, nudge_states):
     """
     Find the max local nudge impact. The local nudge is performed on
@@ -360,40 +324,76 @@ def find_max_local_impact(input_dist, cond_output, nudge_size, nudge_states):
 
     """
     number_of_input_states = input_arr.flatten().shape[0]
-    input_arr = np.moveaxis(input_dist, nudge_states, 
-                            list(range(len(nudge_states))))
-    scores = np.moveaxis(cond_output, nudge_states, 
-                         list(range(len(nudge_states))))
+    input_variables = list(range(len(input_dist.shape)))
+    new_nudged_states = input_variables[:len(nudged_variables)]
+    new_non_nudged_states = input_variables[len(nudged_variables):]
+    input_arr = np.moveaxis(input_dist, nudge_states, new_nudged_states)
+    scores = np.moveaxis(cond_output, nudge_states, new_nudged_states)
 
+    weights = np.sum(input_arr, axis=tuple(new_non_nudged_states))
     weighted_scores = np.multiply(
         np.repeat(input_arr.flatten(), cond_output.shape[-1]),
         scores.flatten()
     )
-    weights = np.sum(
-        input_arr,
-        axis=tuple(range(len(nudge_states), len(input_arr.shape), 1))
-    )
 
-    max_impact = 0
-    max_nudge = []
+    max_impact, max_nudge_states, max_nudge_sizes = 0, [], []
     all_allignments_output_states = itertools.product([-1, 1], repeat=cond_output.shape[-1])
+    redundant_states = [[i]*len(allignment_output_state) for i in [-1, 1]]
     for allignment_output_state in all_allignments_output_states:
-        if allignment_output_state==[1]*len(allignment_output_state):
-            continue
-        elif allignment_output_state==[-1]*len(allignment_output_state):
+        if allignment_output_state in redundant_states:
             continue
             
         print(allignment_output_state)
         allignment = weighted_scores * np.array(allignment_output_state*number_of_input_states)
         allignment_scores = np.sum(
             np.reshape(allignment, cond_output.shape),
-            axis=tuple(range(len(nudge_states), len(cond_output.shape), 1))
+            axis=tuple(new_non_nudged_states)
         )
-        sorted_result = sorted(
-            [[weight, score, input_var] for weight, score, input_var 
-             in zip(weights.flatten(), allignment_scores.flatten(), range(weights.flatten().shape[0]))],
-            key=lambda x: x[1]
+        nudge_states, nudge_sizes, nudge_impact = find_nudge_states_and_sizes(
+            allignment_scores, weights, nudge_size
         )
+        if nudge_impact > max_impact:
+            max_impact = nudge_impact
+            max_nudge_states, max_nudge_size = nudge_states, nudge_sizes
+
+    return max_nudge_states, max_nudge_sizes, max_impact
+
+def find_nudge_states_and_sizes(scores, weights, nudge_size):
+    """
+    Find the nudge that pushes the output variable maximally towards the 
+    output state
+
+    Parameters:
+    ----------
+    scores: 1-D nd-array
+        The alligment scores for the conditional distribution linked to
+        all input states
+    weights: nd-array
+       The flattened input probabilities
+    nudge_size: a number
+
+    Returns: nudge, nudge_impact
+    -------
+    selected states: list
+        The states that will be nudged
+    nudge_sizes: nd-array
+        The nudge size for the corresponding selected state
+    nudge_impact: a number
+        The maximum that that the output can be transformed towards the
+        output state by changing the input state with the nudge size 
+
+    """
+    negative_states, negative_nudge_sizes = find_minimum_subset(
+        weights, scores, nudge_size
+    )
+    positive_state = [np.argmax(scores)]
+    positive_nudge_size = sum(negative_nudge_sizes)
+    selected_states = negative_states + positive_state
+    nudge_sizes = np.zeros(len(selected_states))
+    nudge_sizes[:-1] = -1*negative_nudge_sizes
+    nudge_sizes[-1] = positive_nudge_size
+    nudge_impact = np.sum(scores[selected_states] * nudge_sizes)
+    return selected_states, nudge_sizes, nudge_impact
 
 def find_minimum_subset(weights, scores, total_size):
     """
@@ -424,16 +424,15 @@ def find_minimum_subset(weights, scores, total_size):
 
     count = 0
     minus_weight = 0
-    while minus_weight < nudge_size and count < len(variables)-1:
+    while minus_weight < total_size and count < len(indices)-1:
         minus_weight += weights_sorted[count]
         count += 1
     
-    selected_indices = indices[:count]
+    selected_indices = list(indices_sorted[:count])
     selected_weights = weights[selected_indices]
     selected_weights[-1] = min(total_size-sum(selected_weights[:-1]),
                                selected_weights[-1])
     return selected_indices, selected_weights
-
 
 def select_subset(arr, threshold):
     """
