@@ -534,7 +534,7 @@ class FindMaximumLocalNudge():
 
 if __name__ == "__main__":
     #distribution parameters
-    input_variables = 6
+    input_variables = 4
     number_of_states = 5
     nudge_size = 0.01
     distribution_shape = [number_of_states]*input_variables
@@ -550,7 +550,7 @@ if __name__ == "__main__":
     cond_output = np.reshape(cond_output, cond_shape)
 
     #local nudge optimization
-    number_of_generations = 40 
+    number_of_generations = 500 
     population_size = 10
     number_of_children = 20 
     generational = True 
@@ -614,8 +614,14 @@ if __name__ == "__main__":
     max_individual = find_max_nudge.get_max_nudge(
         individuals, number_of_generations, mutation_size
     )
-    print("the found max impact {}".format(max_individual.score))
+
+    print("the found max impact for a local nudge {}".format(
+        max_local_nudge_individual.score
+    ))
+    print("the found max impact for an individual nudge {}".format(
+        max_individual.score
+    ))
     max_impact = maximum_nudges.find_maximum_local_nudge(
         input_dist, cond_output, nudge_size/2
     )
-    print("the actual maximum nudge {}".format(max_impact))
+    print("the actual maximum individual nudge {}".format(max_impact))
