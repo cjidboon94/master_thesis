@@ -339,43 +339,12 @@ def produce_distribution_with_entropy(shape, percentage_max_entropy):
     Note: for percentage max entropy above 0.9 it does not work well
 
     """
+    distribution_shape = shape
     number_of_generations = 2000
     population_size = 10
     number_of_children = 20
     generational = False
-    mutation_size = 0.005
-    parent_selection_mode = "rank_exponential"
-    number_of_states = reduce(lambda x,y: x*y, shape)
-    goal_entropy = np.log2(number_of_states)*percentage_max_entropy
-    print("the goal entropy {}".format(goal_entropy))
-    initial_population = PopulationEntropy.create_random_population(
-        population_size, number_of_states, "random"
-    )
-    print("entropy initial population {}".format(
-        entropy(initial_population[0].genes, base=2)
-    ))
-    for individual in initial_population.individuals:
-        individual.evaluate(goal_entropy)
-
-    evolve = EvolvePopulationEntropy(
-        initial_population, goal_entropy, number_of_generations,
-        number_of_children, parent_selection_mode
-    )
-    evolve.evolve(generational, mutation_size)
-    #print(evolve.population.individuals[0].genes)
-    print("the final entropy {}".format(
-        entropy(evolve.population.individuals[0].genes, base=2
-    )))
-    return evolve.population[0].genes
-
-if __name__ == "__main__":
-    distribution_shape = [5]*6
-    number_of_generations = 2000
-    percentage_max_entropy = 0.55
-    population_size = 10
-    number_of_children = 20
-    generational = False
-    mutation_size = 0.005
+    mutation_size = 0.0025
     if percentage_max_entropy>=0.9:
         mutation_size = 0.10
     parent_selection_mode = "rank_exponential"
@@ -397,12 +366,43 @@ if __name__ == "__main__":
         number_of_children, parent_selection_mode
     )
     evolve.evolve(generational, mutation_size)
-    #print(evolve.population.individuals[0].genes)
-    print("the final entropy {}".format(
-        entropy(evolve.individuals[0].genes, base=2
-    )))
+    return evolve.individuals[0].genes
 
-    #genes = produce_distribution_with_entropy(
-    #    distribution_shape, percentage_max_entropy
-    #)
-    #print("the final entropy {}".format(entropy(genes, base=2)))
+if __name__ == "__main__":
+    distribution_shape = [5]*6
+    number_of_generations = 2000
+    percentage_max_entropy = 0.55
+    population_size = 10
+    number_of_children = 20
+    generational = False
+    mutation_size = 0.0025
+    if percentage_max_entropy>=0.9:
+        mutation_size = 0.10
+    parent_selection_mode = "rank_exponential"
+    number_of_states = reduce(lambda x,y: x*y, distribution_shape)
+    goal_entropy = np.log2(number_of_states)*percentage_max_entropy
+    print("the goal entropy {}".format(goal_entropy))
+    individuals = create_individual_distributions(
+        population_size, number_of_states, "random"
+    )
+    for individual in individuals:
+        individual.evaluate(goal_entropy)
+
+    print("entropy initial population {}".format(
+        entropy(sort_individuals(individuals)[0].genes, base=2)
+    ))
+
+    evolve = FindDistributionEntropy(
+        individuals, goal_entropy, number_of_generations,
+        number_of_children, parent_selection_mode
+    )
+    evolve.evolve(generational, mutation_size)
+    print(evolve.individuals[0].genes[:1000])
+    print("the final entropy {}".format(
+        entropy(evolve.individuals[0].genes, base=2)
+    ))
+
+    genes = produce_distribution_with_entropy(
+        distribution_shape, percentage_max_entropy
+    )
+    print("the final entropy {}".format(entropy(genes, base=2)))
