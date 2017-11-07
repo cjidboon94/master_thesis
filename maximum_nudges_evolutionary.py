@@ -6,6 +6,8 @@ import probability_distributions
 
 import maximum_nudges
 
+TEST = False
+
 class IndividualNudge(ea.Individual):
     """
     A class that represents one individual individual_nudge in a
@@ -76,7 +78,7 @@ class IndividualNudge(ea.Individual):
         mutation = nudge.find_noise_vector(len(self.genes), mutation_size)
         self.genes += mutation
         norm = np.sum(np.absolute(self.genes))
-        self.genes = self.genes * (nudge_size/norm)
+        self.genes = self.genes * (self.nudge_size/norm)
         if abs(np.sum(np.absolute(self.genes))-self.nudge_size) > 10**(-7):
             raise ValueError()
         if abs(np.sum(self.genes)) > 10**(-10):
@@ -310,11 +312,11 @@ class FindMaximumIndividualNudge():
         """
         population = individuals
         for timestep in range(number_of_generations):
-            print("the timestep is {}".format(timestep))
             population = self.evolve(population, mutation_size, timestep)
-            print("best score {}, worst score {}".format(
-                population[0].score, population[-1].score
-            ))
+            if TEST:
+                print("timestep {} best score {}, worst score {}".format(
+                    timestep, population[0].score, population[-1].score
+                ))
 
         return ea.sort_individuals(population)[0]
 
@@ -428,12 +430,12 @@ class FindMaximumLocalNudge():
         population = individuals
         scores = []
         for timestep in range(number_of_generations):
-            print("the timestep is {}".format(timestep))
             population = self.evolve(population, timestep)
             scores.append(population[0].score)
-            print("best score {} worst score {}".format(
-                population[0].score, population[-1].score
-            ))
+            if TEST:
+                print("time step {} best score {} worst score {}".format(
+                    timestep, population[0].score, population[-1].score
+                ))
 
         return ea.sort_individuals(population)[0]
 
@@ -550,7 +552,7 @@ if __name__ == "__main__":
     cond_output = np.reshape(cond_output, cond_shape)
 
     #local nudge optimization
-    number_of_generations = 500 
+    number_of_generations = 200 
     population_size = 10
     number_of_children = 20 
     generational = True 
