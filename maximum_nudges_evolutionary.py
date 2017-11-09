@@ -246,9 +246,7 @@ def create_individual_nudges(number_of_individuals, number_of_states,
     ----------
     number_of_individuals: an integer
     number_of_genes: an integer
-    mode: a string
-        Either "random" or "peaked"
-    number_of_peaks: an integer
+    nudge_size: the total size of the nudge
     timestamp: an integer
 
     Returns:
@@ -265,8 +263,104 @@ def create_individual_nudges(number_of_individuals, number_of_states,
 
     return individuals
 
+class SynergisticNudge():
+    """
+    Class to represent a synergistic nudge
+
+    Attributes:
+    ----------
+    start_distribution:
+    new_distribution:
+    cond_output:
+    nudge_size:
+    mutations_per_update_step:
+    score:
+    timestamp:
+    mutation_size: a number
+    change_mutation_size: a number 
+        The size of the change applied to the mutation_size
+
+    """
+    def __init__(self, start_distribution, new_distribution, cond_output,
+                 nudge_size, mutations_per_update_step, start_mutation_size,
+                 change_mutation_size, timestamp):
+        """create SynergisticNudge object"""
+        self.start_distribution = start_distribution
+        self.new_distribution = new_distribution
+        self.cond_output = cond_output
+        self.nudge_size = nudge_size
+        self.mutations_per_update_step = mutations_per_update_step
+        self.mutation_size_weights = mutation_size_weights
+        self.mutation_size = start_mutation_size
+        self.change_mutation_size = change_mutation_size
+        self.timestamp = timestamp
+
+    def evaluate(self):
+        """
+        Find the impact of the nudge on the output distribution and 
+        set the score. The score is multiplied by -1 to make it a 
+        minimization problem.
+
+        """
+        nudge_impact = nudge.find_nudge_impact(
+            self.start_distribution, self.new_distribution, self.cond_output,
+            measure="absolute"
+        )
+        #to make it a minimization rather than a maximization problem
+        self.score = -nudge_impact
+
+    def mutate(self):
+        """
+        Mutate both the mutation size and the genes (the weights and the 
+        individual nudges)
+        
+        """
+        self.mutation_size += np.random.uniform(
+            -self.change_mutation_size, self.change_mutation_size
+        )
+        for _ in range(self.mutations_per_update_step):
+            nudge.synergistic_mutate(self.new_distribution, self.mutation_size)
+
+        new_nudge_size = np.sum(abs(
+            self.new_distribution-self.start_distribution
+        ))
+        adjustment_factor = self.nudge_size/new_nudge_size
+        self.new_distribution = (
+            self.start_distribution +
+            (self.new_distribution-self.start_distribution)*adjustment_factor
+        )
+
+    @classmethod
+    def create_nudge(cls, start_distribution, new_distribution, cond_output,
+                     nudge_size, mutations_per_update_step, start_mutation_size,
+                     change_mutation_size, timestamp):
+        """
+        Create an IndividualNudge object randomly
+
+        Parameters:
+        ----------
+        input_distribution: nd-array- representing a probability distribution
+        cond_output: nd-array 
+            Representing a probability distribution, the output should be
+            on the last axis
+        nudge_size: number
+        number_of_states: integer
+        timestamp: integer
+
+        Returns: IndividualNudge object
+
+        """
+        new_distribution = np.copy(start_distribution)
+        instance = cls(
+            start_distribution, new_distribution, cond_output, nudge_size,
+            mutations_per_update_step, start_mutation_size,
+            change_mutation_size, timestamp
+        )
+        instance.mutate()
+        return instance
+
 class FindMaximumIndividualNudge():
-    """ 
+    """
     A class to find the maximal individual nudge
 
     Attributes:
@@ -385,7 +479,7 @@ class FindMaximumIndividualNudge():
 
 class FindMaximumLocalNudge():
     """ 
-    A class to find the maximal individual nudge
+    A class to find the maximal local nudge
 
     Attributes:
     ----------
@@ -413,12 +507,11 @@ class FindMaximumLocalNudge():
 
     def get_max_nudge(self, individuals, number_of_generations):
         """
-        Find the maximum individual nudge.
+        Find the maximum local nudge.
 
         Parameters:
         ----------
         number_of_generations: an integer
-        mutation_size: a number
         individuals: list of IndividualNudge objects
  
         Returns:
@@ -533,6 +626,124 @@ class FindMaximumLocalNudge():
         return LocalNudge(new_weights, new_individual_nudges, new_nudged_vars,
                           new_mutation_size, new_change_mutation_size, 
                           new_mutation_size_weights, new_nudge_size, new_timestamp)
+
+class FindMaximumSynergisticNudge():
+    """ 
+    A class to find the maximal individual nudge
+
+    Attributes:
+    ----------
+    generational: Boolean
+        Whether to discard the old individuals at every new timestep
+    number_of_children: an integer
+    parent_selection_mode: Either "rank_exponential" or None
+
+    """
+    def __init__(self, generational, number_of_children, parent_selection_mode):
+        """Create a FindMaximumSynergisticNudge object"""
+        self.generational = generational
+        self.number_of_children = number_of_children
+        self.parent_selection_mode = parent_selection_mode
+
+    def get_max_nudge(self, individuals, number_of_generations):
+        """
+        Find the maximum synergistic nudge.
+
+        Parameters:
+        ----------
+        number_of_generations: an integer
+        individuals: list of IndividualNudge objects
+ 
+        Returns:
+        -------
+        A numpy array which represents the maximum individual nudge
+        for the start distribution.
+
+        """
+        population = individuals
+        scores = []
+        for timestep in range(number_of_generations):
+            population = self.evolve(population, timestep)
+            scores.append(population[0].score)
+            if TEST:
+                print("time step {} best score {} worst score {}".format(
+                    timestep, population[0].score, population[-1].score
+                ))
+
+        return ea.sort_individuals(population)[0]
+
+    def evolve(self, individuals, timestep):
+        """
+        Evolve the population
+        
+        Parameters:
+        ----------
+        individuals: a list with LocalNudge objects
+
+        Returns: a list of LocalNudge Objects
+
+        """
+        parents = ea.select_parents(individuals, self.number_of_children*2,
+                                    self.parent_selection_mode)
+        children = self.create_children(parents, self.number_of_children,
+                                        timestep)
+        for child in children:
+            child.evaluate()
+
+        return ea.select_new_population(individuals, children, len(individuals),
+                                        self.generational)
+
+    def create_children(self, parents, number_of_children, timestamp):
+        """
+        Create new individuals.
+
+        Parameters:
+        ----------
+        parents: a list of individual objects
+        number_of_children: an integer
+        timestamp: a number
+        mutation_size: a number
+
+        """
+        children = []
+        for i in range(number_of_children):
+            children.append(self.recombine(
+                parents[i], parents[number_of_children+i], timestamp
+            ))
+        for child in children:
+            child.mutate()
+
+        return children
+
+    def recombine(self, parent1, parent2, timestamp):
+        """recombine two SynergisticNudges to create a new individual
+        
+        Parameters:
+        ----------
+        parent1: SynergisticNudge object
+        parent2: SynergisticNudge object
+        timestamp: a number
+
+        Returns: SynergisticNudge object
+
+        """
+        if np.random.random() > 0.5:
+            new_distribution = np.copy(parent1.new_distribution)
+            return SynergisticNudge(
+                parent1.start_distribution, new_distribution, parent1.cond_output,
+                parent1.nudge_size, parent1.mutations_per_update_step, 
+                parent1.start_mutation_size, parent1.change_mutation_size,
+                timestamp
+            )
+        else:
+            new_distribution = np.copy(parent2.new_distribution)
+            return SynergisticNudge(
+                parent2.start_distribution, new_distribution, parent2.cond_output,
+                parent2.nudge_size, parent2.mutations_per_update_step, 
+                parent2.start_mutation_size, parent2.change_mutation_size,
+                timestamp
+            )
+
 
 if __name__ == "__main__":
     #distribution parameters

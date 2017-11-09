@@ -340,26 +340,26 @@ def produce_distribution_with_entropy(shape, percentage_max_entropy):
 
     """
     distribution_shape = shape
-    number_of_generations = 2000
+    number_of_generations = 1800
     population_size = 10
     number_of_children = 20
     generational = False
-    mutation_size = 0.0025
+    mutation_size = 0.0020
     if percentage_max_entropy>=0.9:
         mutation_size = 0.10
     parent_selection_mode = "rank_exponential"
     number_of_states = reduce(lambda x,y: x*y, distribution_shape)
     goal_entropy = np.log2(number_of_states)*percentage_max_entropy
-    print("the goal entropy {}".format(goal_entropy))
+    #print("the goal entropy {}".format(goal_entropy))
     individuals = create_individual_distributions(
         population_size, number_of_states, "random"
     )
     for individual in individuals:
         individual.evaluate(goal_entropy)
 
-    print("entropy initial population {}".format(
-        entropy(sort_individuals(individuals)[0].genes, base=2)
-    ))
+    #print("entropy initial population {}".format(
+    #    entropy(sort_individuals(individuals)[0].genes, base=2)
+    #))
 
     evolve = FindDistributionEntropy(
         individuals, goal_entropy, number_of_generations,
