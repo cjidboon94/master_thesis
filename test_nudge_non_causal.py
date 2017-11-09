@@ -308,3 +308,91 @@ class TestNudge(unittest.TestCase):
             self.assertAlmostEqual(np.sum(new_dist), 1)
             self.assertTrue(np.all(new_dist >= 0))
 
+class TestSynergisticNudge(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def test_select_random_synergistic_mutation_states(self):
+        distribution = np.array([
+            [0.2, 0.15, 0.1],
+            [0.1, 0.05, 0.1],
+            [0.03, 0.17, 0.1]
+        ])
+        for _ in range(10):
+            states_dict = nudge.select_random_synergistic_mutation_states(
+                distribution
+            )
+            #print(states_dict)
+            #print(states_dict["negative_states"])
+            #print(states_dict["positive_states"])
+            
+
+    def test_synergistic_mutate_marginals_constant1(self):
+        distribution = np.array([
+            [0.2, 0.15, 0.1],
+            [0.1, 0.05, 0.1],
+            [0.03, 0.17, 0.1]
+        ])
+        for _ in range(10):
+            new_distribution = np.copy(distribution)
+            for _ in range(10):
+                nudge.synergistic_mutate(
+                    new_distribution, max_mutation_size=0.1
+                )
+            marginal1 = np.sum(new_distribution, axis=0)
+            marginal2 = np.sum(new_distribution, axis=1)
+            self.assertTrue(np.allclose(
+                marginal1, np.array([0.33, 0.37, 0.3])
+            ))
+            self.assertTrue(np.allclose(
+                marginal2, np.array([0.45, 0.25, 0.3])
+            ))
+    
+    def test_synergistic_mutate_new_probability_distribution1(self):
+        distribution = np.array([
+            [0.2, 0.15, 0.1],
+            [0.1, 0.05, 0.1],
+            [0.03, 0.17, 0.1]
+        ])
+        for _ in range(50):
+            new_distribution = np.copy(distribution)
+            for _ in range(1000):
+                nudge.synergistic_mutate(
+                    new_distribution, max_mutation_size=0.1
+                )
+            #print(new_distribution)
+            self.assertAlmostEqual(np.sum(new_distribution), 1)
+            self.assertTrue(np.all(new_distribution >= 0))
+
+    def test_synergistic_mutate_specific_example1(self):
+        distribution = np.array([
+            [0.2, 0.15, 0.1],
+            [0.1, 0.05, 0.1],
+            [0.03, 0.17, 0.1]
+        ])
+        mutate_states_dict = {
+            "negative_states":[(0, 0), (2, 2)],
+            "positive_states":[(0, 2), (2, 0)]
+        }
+        mutation_size = 0.01
+        new_distribution = np.copy(distribution)
+        nudge.synergistic_mutate(
+            new_distribution, mutation_size=mutation_size, 
+            mutation_dict=mutate_states_dict
+        )
+        self.assertTrue(np.allclose(
+            new_distribution, np.array([
+                [0.19, 0.15, 0.11],
+                [0.1, 0.05, 0.1],
+                [0.04, 0.17, 0.09]
+            ])
+        ))
+        marginal1 = np.sum(new_distribution, axis=0)
+        marginal2 = np.sum(new_distribution, axis=1)
+        self.assertTrue(np.allclose(
+            marginal1, np.array([0.33, 0.37, 0.3])
+        ))
+        self.assertTrue(np.allclose(
+            marginal2, np.array([0.45, 0.25, 0.3])
+        ))
+

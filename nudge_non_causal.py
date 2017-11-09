@@ -1,6 +1,7 @@
 import numpy as np
 from probability_distributions import ProbabilityArray
 import probability_distributions
+import copy
 
 np.seterr(all='warn')
 
@@ -284,6 +285,117 @@ def nudge_states(noise, probabilities):
 
     #print("the capped noise {}".format(capped_noise))
     return probabilities+capped_noise
+
+def synergistic_mutate(distribution, max_mutation_size=None, mutation_dict=None, 
+                       mutation_size=None):
+    """
+    Mutate the joint distribution without changing any of the marginals.
+
+    Parameters:
+    ----------
+    distribution: nd-array representing probability distribution
+    max_mutation_size: number
+    mutation_dict: a dict with negative_states and positive_states where
+        both values are a list of tuples represesenting which states to 
+        mutate
+    mutation_size: a number
+
+    Returns: nd-array, 
+    -------
+    The mutated distribution which is a probability distribution itself.
+
+    Note: 
+    ----
+    The distribution should have at least two variables and the mutation
+    happens in place. Need to supply either max_mutation_size or 
+    mutation_size. The method won't work well for distributions with a low
+    entropy.
+
+    """
+    number_of_variables = len(distribution.shape)
+    if number_of_variables < 2:
+        raise ValueError("should be at least two variables")
+    if mutation_dict is None:
+        mutation_dict = select_random_synergistic_mutation_states(distribution)
+    
+    negative_states = mutation_dict["negative_states"]
+    positive_states = mutation_dict["positive_states"]
+
+    #what to do if any of the negative mutation states is smaller than the
+    #mutation_size -simply set the mutation to zero? this will push the
+    #distribution to uniform (after many mutations) 
+    #solution is to maximize the mutation size to max of the weights of the states
+    #plus some small number ...
+    if mutation_size is not None:
+        mutation_size = min(
+            distribution[negative_states[0]],
+            distribution[negative_states[1]],
+            mutation_size
+        )
+    elif mutation_size is None:
+        maximum_mutation_size = min(
+            distribution[negative_states[0]],
+            distribution[negative_states[1]],
+            max_mutation_size
+        )
+        mutation_size = np.random.uniform(0, maximum_mutation_size)
+
+    for state in negative_states:
+        distribution[state] -= mutation_size
+    for state in positive_states:
+        distribution[state] += mutation_size
+    return distribution
+
+def select_random_synergistic_mutation_states(distribution):
+    """
+    
+    Parameters:
+    ----------
+    distribution: nd-array representing a probability distribution
+
+    Returns: 
+    -------
+    A dict with keys positive_states, negative_states where both have
+    a list of two tuples as values. The tuples represent states of the 
+    distribution.
+
+    """
+    number_of_variables = len(distribution.shape)
+    nudged_var1, nudged_var2 = np.random.choice(
+        number_of_variables, 2, replace=False
+    )
+    states_var1 = np.random.choice(
+        distribution.shape[nudged_var1], 2, replace=False
+    )
+    states_var2 = np.random.choice(
+        distribution.shape[nudged_var2], 2, replace=False
+    )
+    other_vars = list(range(number_of_variables))
+    other_states = [np.random.choice(distribution.shape[other_vars[var]])
+                    for var in other_vars]
+
+    #print(other_states)
+    states1, states2, states3, states4 = (
+        copy.copy(other_vars), copy.copy(other_vars), copy.copy(other_vars),
+        copy.copy(other_vars)
+    )
+    states1[nudged_var1] = states_var1[0]
+    states1[nudged_var2] = states_var2[0]
+    states2[nudged_var1] = states_var1[0]
+    states2[nudged_var2] = states_var2[1]
+    states3[nudged_var1] = states_var1[1]
+    states3[nudged_var2] = states_var2[0]
+    states4[nudged_var1] = states_var1[1]
+    states4[nudged_var2] = states_var2[1]
+    if np.random.random() > 0.5:
+        negative_states = [tuple(states1), tuple(states4)]
+        positive_states = [tuple(states2), tuple(states3)]
+    else:
+        negative_states = [tuple(states2), tuple(states3)]
+        positive_states = [tuple(states1), tuple(states4)]
+   
+    return {"negative_states":negative_states, 
+            "positive_states":positive_states}
 
 if __name__ == "__main__":
     dist1d = np.array([0.1, 0.3, 0.08, 0.12, 0.03, 0.06, 0.02, 0.22, 0.07])
