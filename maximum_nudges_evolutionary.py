@@ -220,7 +220,7 @@ class LocalNudge(ea.Individual):
         number_of_states: integer
         timestamp: integer
 
-        Returns: IndividualNudge object
+        Returns: LocalNudge object
 
         """
         nudged_vars = list(nudged_vars_to_states.keys())
@@ -269,13 +269,18 @@ class SynergisticNudge():
 
     Attributes:
     ----------
-    start_distribution:
-    new_distribution:
-    cond_output:
-    nudge_size:
-    mutations_per_update_step:
-    score:
-    timestamp:
+    start_distribution: nd-array 
+        Representing a probability distribution, this distribution 
+        should not be changed (since it is shared among many instances).
+        In java this would be made static
+    new_distribution: nd-array
+        Representing a probability distribution, this one is specific 
+        to this instance
+    cond_output: nd-array, the output should be on the last axis
+    nudge_size: number
+    mutations_per_update_step: integer
+    score: number
+    timestamp: integer
     mutation_size: a number
     change_mutation_size: a number 
         The size of the change applied to the mutation_size
@@ -290,7 +295,6 @@ class SynergisticNudge():
         self.cond_output = cond_output
         self.nudge_size = nudge_size
         self.mutations_per_update_step = mutations_per_update_step
-        self.mutation_size_weights = mutation_size_weights
         self.mutation_size = start_mutation_size
         self.change_mutation_size = change_mutation_size
         self.timestamp = timestamp
@@ -325,35 +329,38 @@ class SynergisticNudge():
             self.new_distribution-self.start_distribution
         ))
         adjustment_factor = self.nudge_size/new_nudge_size
-        self.new_distribution = (
-            self.start_distribution +
-            (self.new_distribution-self.start_distribution)*adjustment_factor
-        )
+        if adjustment_factor > 1:
+            self.new_distribution = (
+                self.start_distribution +
+                (self.new_distribution-self.start_distribution)*adjustment_factor
+            )
 
     @classmethod
-    def create_nudge(cls, start_distribution, new_distribution, cond_output,
-                     nudge_size, mutations_per_update_step, start_mutation_size,
+    def create_nudge(cls, start_distribution, cond_output, nudge_size,
+                     mutations_per_update_step, start_mutation_size,
                      change_mutation_size, timestamp):
         """
-        Create an IndividualNudge object randomly
+        Create a SynergisticNudge object randomly
 
         Parameters:
         ----------
-        input_distribution: nd-array- representing a probability distribution
+        start_distribution: nd-array- representing a probability distribution
         cond_output: nd-array 
             Representing a probability distribution, the output should be
             on the last axis
         nudge_size: number
-        number_of_states: integer
+        mutations_per_update_step: an integer
+        start_mutation_size: a number
+        change_mutation_size: a number
         timestamp: integer
 
-        Returns: IndividualNudge object
+        Returns: SynergisticNudge object
 
         """
         new_distribution = np.copy(start_distribution)
         instance = cls(
             start_distribution, new_distribution, cond_output, nudge_size,
-            mutations_per_update_step, start_mutation_size,
+            mutations_per_update_step, start_mutation_size, 
             change_mutation_size, timestamp
         )
         instance.mutate()
