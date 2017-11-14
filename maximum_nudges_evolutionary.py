@@ -338,7 +338,7 @@ class SynergisticNudge():
         new_nudge_size = np.sum(abs(
             self.new_distribution-self.start_distribution
         ))
-        adjustment_factor = 1 # self.nudge_size/new_nudge_size
+        adjustment_factor = self.nudge_size/new_nudge_size
         if adjustment_factor <= 1:
             self.new_distribution = (
                 self.start_distribution +

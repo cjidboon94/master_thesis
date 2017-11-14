@@ -2,6 +2,7 @@ import random
 import nudge_new as nudge
 import numpy as np
 from scipy.stats import entropy
+import probability_distributions
 
 def sort_individuals(individuals):
     """
@@ -112,37 +113,45 @@ def evaluate_cond_distribution(cond_output, number_of_input_dists, goal_distance
         a conditional probability distribution (last axis are the conditional
         probabilities)
     """
-    input_shape = cond_output.shape[:-1]
+    input_shape = list(cond_output.shape[:-1])
     input_dists = []
     for i in range(number_of_input_dists):
-        input_dist = np.random.dirichlet(reduce(input_shape, lambda x,y: x*y)*[1])
+        input_dist = np.random.dirichlet(reduce(lambda x,y: x*y, input_shape)*[1])
         input_dists.append(np.reshape(input_dist, input_shape))
 
-    number_of_variables = len(input_dists[0].shape)
+    number_of_input_vars = len(input_dists[0].shape)
     outputs = []
     for input_dist in input_dists:
         joint = probability_distributions.compute_joint(
-            input_dist, cond_output, set(list(range()))
+            input_dist, cond_output, set(range(0, number_of_input_vars, 1))
         )
+        #print("old joint {}".format(old_joint))
         output = probability_distributions.ProbabilityArray(joint).marginalize(
-            set([number_of_variables])
+            set([number_of_input_vars])
         )
         outputs.append(output)
 
-    average_dist = np.mean(np.array([a1, a2, a3]), axis=0)
-    distance = np.sum(
+    average_dist = np.mean(np.array(outputs), axis=0)
+    distance = np.mean(
         [np.sum(np.absolute(output-average_dist)) for output in outputs]
     )
     return abs(distance-goal_distance)
 
 class ConditionalOutput():
+    """
+    Attributes:
+    ----------
+    conditional_output: nd-array
+    score: a number
+
+    """
     def __init__(self, cond_output):
         """create an individual for an individual algorithms
 
         Parameters:
         ----------
-        genes: a 1d nd-array
-        timestamp: a number
+        cond_output: nd-array
+            representing a conditional probability distribution
 
         """
         self.cond_output = cond_output
@@ -186,8 +195,8 @@ def select_parents(individuals, number_of_parents, mode):
     )
     return parents
 
-def create_individual_distributions(
-            number_of_individuals, number_of_states, 
+def create_condional_distributions(
+            number_of_conditional_outputs, number_of_states, 
             number_of_input_variables
             ):
     """
@@ -196,20 +205,17 @@ def create_individual_distributions(
 
     Parameters:
     ----------
-    number_of_individuals: an integer
-    number_of_genes: an integer
-    mode: a string
-        Either "random" or "peaked"
-    number_of_peaks: an integer
-    timestamp: an integer
+    number_of_conditional_outputs: an integer
+    number_of_states: an integer
+    number_of_input_variables: an integer
 
     Returns:
     -------
-    a list of IndividualDistribution objects
+    a list of ConditionalOutput objects
 
     """
-    individuals = []
-    for i in range(number_of_individuals):
+    conditional_outputs = []
+    for _ in range(number_of_conditional_outputs):
         cond_shape = [number_of_states]*(number_of_input_variables+1)
         cond_output = [
             probability_distributions.compute_joint_uniform_random((number_of_states,))
@@ -217,12 +223,12 @@ def create_individual_distributions(
         ]
         cond_output = np.array(cond_output)
         cond_output = np.reshape(cond_output, cond_shape)        
-        individual = IndividualDistribution(cond_output)
-        individuals.append(individual)
+        individual = ConditionalOutput(cond_output)
+        conditional_outputs.append(individual)
 
-    return individuals
+    return conditional_outputs
 
-class FindDistribution():
+class FindConditionalOutput():
     """ 
     A class that uses evolutionary algorithms to find a distribution 
     with a certain entropy
@@ -230,7 +236,7 @@ class FindDistribution():
     Attributes:
     ----------
     individuals: list of IndividualDistribution objects
-    goal_entropy: a number
+    goal_distance: a number
     number_of_generations: an integer
     number_of_children: an integer
     parent_selection_mode: Either "rank_exponential" or None
@@ -238,7 +244,7 @@ class FindDistribution():
     """
     def __init__(self, individuals, goal_entropy, number_of_generations,
                  number_of_children, parent_selection_mode):
-        """Create a FindDistributionEntropy object"""
+        """Create a FindConditionalOutput object"""
         self.individuals = individuals
         self.entropy_goal = goal_entropy
         self.number_of_generations = number_of_generations
@@ -306,53 +312,11 @@ class FindDistribution():
 
         """
         if np.random.random() > 0.5:
-            genes = np.copy(parent1.genes)
+            genes = np.copy(parent1.conditional_output)
         else:
-            genes =  np.copy(parent2.genes)
+            genes =  np.copy(parent2.conditional_output)
         
-        return IndividualDistribution(genes, timestamp)
-
-def produce_distribution_with_entropy(shape, percentage_max_entropy):
-    """
-    Create a distribution (randomly) with a certain entropy
-
-    Parameters:
-    ----------
-    shape: an iterable
-    percentage_max_entropy: a number
-        The percentage of the maximum entropy
-
-    Note: for percentage max entropy above 0.9 it does not work well
-
-    """
-    distribution_shape = shape
-    number_of_generations = 1800
-    population_size = 10
-    number_of_children = 20
-    generational = False
-    mutation_size = 0.0020
-    if percentage_max_entropy>=0.9:
-        mutation_size = 0.10
-    parent_selection_mode = "rank_exponential"
-    number_of_states = reduce(lambda x,y: x*y, distribution_shape)
-    goal_entropy = np.log2(number_of_states)*percentage_max_entropy
-    #print("the goal entropy {}".format(goal_entropy))
-    individuals = create_individual_distributions(
-        population_size, number_of_states, "random"
-    )
-    for individual in individuals:
-        individual.evaluate(goal_entropy)
-
-    #print("entropy initial population {}".format(
-    #    entropy(sort_individuals(individuals)[0].genes, base=2)
-    #))
-
-    evolve = FindDistributionEntropy(
-        individuals, goal_entropy, number_of_generations,
-        number_of_children, parent_selection_mode
-    )
-    evolve.evolve(generational, mutation_size)
-    return evolve.individuals[0].genes
+        return ConditionalOutput(genes, timestamp)
 
 if __name__ == "__main__":
     distribution_shape = [5]*6
