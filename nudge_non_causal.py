@@ -298,7 +298,7 @@ def synergistic_mutate(distribution, max_mutation_size=None, mutation_dict=None,
     mutation_dict: a dict with negative_states and positive_states where
         both values are a list of tuples represesenting which states to 
         mutate
-    mutation_size: a number
+    mutation_size: a positive number
 
     Returns: nd-array, 
     -------
@@ -344,6 +344,17 @@ def synergistic_mutate(distribution, max_mutation_size=None, mutation_dict=None,
         distribution[state] -= mutation_size
     for state in positive_states:
         distribution[state] += mutation_size
+
+    if np.any(distribution<0):
+        print("something went wrong")
+        print("negative states {}".format(negative_states))
+        print("positive_states {}".format(positive_states))
+        print("the mutation size {}".format(mutation_size))
+        print("the negative probs {}, {}".format(distribution[negative_states[0]], distribution[negative_states[1]]))
+        print("the positive probs {}, {}".format(distribution[positive_states[0]], distribution[positive_states[1]]))
+        print(distribution)
+        raise ValueError()
+
     return distribution
 
 def select_random_synergistic_mutation_states(distribution):

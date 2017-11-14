@@ -1,5 +1,6 @@
 import random
 import nudge_non_causal as nudge
+import nudge as nudge_old
 import numpy as np
 import evolutionary_algorithms as ea
 import probability_distributions
@@ -313,6 +314,15 @@ class SynergisticNudge():
         #to make it a minimization rather than a maximization problem
         self.score = -nudge_impact
 
+    def mutate_new(self):
+        distribution = np.copy(new_distribution)
+        output_label = np.random.choice(len(new_distribution.shape))
+        new_dist = nudge_old.mutate_distribution_with_fixed_marginals(
+            distribution, output_label, self.mutations_per_update_step,
+            self.mutation_size
+        )
+
+
     def mutate(self):
         """
         Mutate both the mutation size and the genes (the weights and the 
@@ -323,17 +333,20 @@ class SynergisticNudge():
             -self.change_mutation_size, self.change_mutation_size
         )
         for _ in range(self.mutations_per_update_step):
-            nudge.synergistic_mutate(self.new_distribution, self.mutation_size)
+            nudge.synergistic_mutate(self.new_distribution, abs(self.mutation_size))
 
         new_nudge_size = np.sum(abs(
             self.new_distribution-self.start_distribution
         ))
-        adjustment_factor = self.nudge_size/new_nudge_size
-        if adjustment_factor > 1:
+        adjustment_factor = 1 # self.nudge_size/new_nudge_size
+        if adjustment_factor <= 1:
             self.new_distribution = (
                 self.start_distribution +
                 (self.new_distribution-self.start_distribution)*adjustment_factor
             )
+
+        if np.any(self.new_distribution<0):
+            raise ValueError()
 
     @classmethod
     def create_nudge(cls, start_distribution, cond_output, nudge_size,
@@ -739,7 +752,7 @@ class FindMaximumSynergisticNudge():
             return SynergisticNudge(
                 parent1.start_distribution, new_distribution, parent1.cond_output,
                 parent1.nudge_size, parent1.mutations_per_update_step, 
-                parent1.start_mutation_size, parent1.change_mutation_size,
+                parent1.mutation_size, parent1.change_mutation_size,
                 timestamp
             )
         else:
@@ -747,7 +760,7 @@ class FindMaximumSynergisticNudge():
             return SynergisticNudge(
                 parent2.start_distribution, new_distribution, parent2.cond_output,
                 parent2.nudge_size, parent2.mutations_per_update_step, 
-                parent2.start_mutation_size, parent2.change_mutation_size,
+                parent2.mutation_size, parent2.change_mutation_size,
                 timestamp
             )
 
