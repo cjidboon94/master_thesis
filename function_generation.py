@@ -1,8 +1,9 @@
 import random
-import nudge_new as nudge
+import itertools
 import numpy as np
 from scipy.stats import entropy
 import probability_distributions
+import nudge_non_causal as nudge
 
 def sort_individuals(individuals):
     """
@@ -56,26 +57,34 @@ def select_parents_universal_stochastic(amount_of_parents, sorted_population,
 
     return parents
 
-def mutate_distribution_uniform(distribution, mutation_size):
+def mutate_conditional_distribution_uniform(distribution, mutation_size):
     """
     Mutate the probability distribution
 
     Parameters:
     ----------
-    distribution: a 1d nd-array
-    mutation_size: a float
+    distribution: nd-array
+        Representing a conditional output diistribtution (with the the
+        output on the last axis)
+    mutation_size: a positive float
+
+    Note: It happens in place
 
     """
-    mutation = np.random.uniform(-mutation_size, mutation_size, distribution.shape)
-    mutation = mutation
-    mutated_distribution = np.copy(distribution)
+    input_shape = distribution.shape[:-1]
+    number_of_output_states = distribution.shape[-1]
+    lists_of_possible_states_per_variable = [
+        range(states) for states in input_shape
+    ]
+    for state in itertools.product(*lists_of_possible_states_per_variable):
+        mutation = nudge.find_noise_vector(number_of_output_states, 
+                                           mutation_size)
+        distribution[state] = nudge.nudge_states(mutation, distribution[state])
 
-    mutated_distribution = np.minimum(np.maximum(mutated_distribution + mutation, 0), 1)
-    mutated_distribution = mutated_distribution/np.sum(mutated_distribution)
-    if abs(np.sum(mutated_distribution)-1) > 10**-7:
-        raise ValueError()
+        if abs(np.sum(distribution[state])-1) > 10**-7:
+            raise ValueError()
 
-    return mutated_distribution
+    return distribution
 
 
 def select_new_population(old_individuals, new_individuals, size, 
@@ -102,46 +111,16 @@ def select_new_population(old_individuals, new_individuals, size,
     else:
         individuals = old_individuals+new_individuals
 
-    return sort_individuals(individuals)[:size]
+    return sort_individuals(individuals)[-size:]
 
-def evaluate_cond_distribution(cond_output, number_of_input_dists, goal_distance):
-    """
-
-    Parameters:
-    ----------
-    cond_output: nd-array, 
-        a conditional probability distribution (last axis are the conditional
-        probabilities)
-    """
-    input_shape = list(cond_output.shape[:-1])
-    input_dists = []
-    for i in range(number_of_input_dists):
-        input_dist = np.random.dirichlet(reduce(lambda x,y: x*y, input_shape)*[1])
-        input_dists.append(np.reshape(input_dist, input_shape))
-
-    number_of_input_vars = len(input_dists[0].shape)
-    outputs = []
-    for input_dist in input_dists:
-        joint = probability_distributions.compute_joint(
-            input_dist, cond_output, set(range(0, number_of_input_vars, 1))
-        )
-        #print("old joint {}".format(old_joint))
-        output = probability_distributions.ProbabilityArray(joint).marginalize(
-            set([number_of_input_vars])
-        )
-        outputs.append(output)
-
-    average_dist = np.mean(np.array(outputs), axis=0)
-    distance = np.mean(
-        [np.sum(np.absolute(output-average_dist)) for output in outputs]
-    )
-    return abs(distance-goal_distance)
 
 class ConditionalOutput():
     """
     Attributes:
     ----------
-    conditional_output: nd-array
+    cond_output: nd-array, 
+        a conditional probability distribution (last axis are the conditional
+        probabilities)
     score: a number
 
     """
@@ -158,13 +137,51 @@ class ConditionalOutput():
         self.score = None
 
     def mutate(self, mutation_size):
-        self.genes = mutate_distribution_uniform(self.genes, mutation_size)
+        """mutate the distribution
 
-    def evaluate(self, number_of_input_dists, goal_distance):
-        """calculate the absolute difference with entropy and entropy goal"""
-        self.score = evaluate_cond_distribution(
-            self.cond_output, number_of_input_dists, goal_distance
+        Parameters:
+        ----------
+        mutation_size: a positive float
+
+        """
+        self.cond_output = mutate_conditional_distribution_uniform(
+            self.cond_output, mutation_size
         )
+
+    def evaluate(self, goal_distance, input_dists=None, 
+                 number_of_input_dists=None):
+        """
+
+        Parameters:
+        ----------
+        goal_distance:
+        input_dists:
+        number_of_input_dists:
+
+        """
+        input_shape = list(self.cond_output.shape[:-1])
+        if input_dists is None:
+            input_dists = []
+            for i in range(number_of_input_dists):
+                input_dist = np.random.dirichlet(reduce(lambda x,y: x*y, input_shape)*[1])
+                input_dists.append(np.reshape(input_dist, input_shape))
+
+        number_of_input_vars = len(input_dists[0].shape)
+        outputs = []
+        for input_dist in input_dists:
+            joint = probability_distributions.compute_joint(
+                input_dist, self.cond_output, set(range(0, number_of_input_vars, 1))
+            )
+            output = probability_distributions.ProbabilityArray(joint).marginalize(
+                set([number_of_input_vars])
+            )
+            outputs.append(output)
+
+        average_dist = np.mean(np.array(outputs), axis=0)
+        distance = np.mean(
+            [np.sum(np.absolute(output-average_dist)) for output in outputs]
+        )
+        self.score = abs(distance-goal_distance)
 
 def select_parents(individuals, number_of_parents, mode):
     """
@@ -200,8 +217,7 @@ def create_condional_distributions(
             number_of_input_variables
             ):
     """
-    Create a list of individual objects. The genes are either generated 
-    according to the mode.
+    Create a list of ContionalOutput objects
 
     Parameters:
     ----------
@@ -221,10 +237,8 @@ def create_condional_distributions(
             probability_distributions.compute_joint_uniform_random((number_of_states,))
             for i in range(number_of_states**(number_of_input_variables))
         ]
-        cond_output = np.array(cond_output)
-        cond_output = np.reshape(cond_output, cond_shape)        
-        individual = ConditionalOutput(cond_output)
-        conditional_outputs.append(individual)
+        cond_output = np.reshape(np.array(cond_output), cond_shape)
+        conditional_outputs.append(ConditionalOutput(cond_output))
 
     return conditional_outputs
 
@@ -242,16 +256,17 @@ class FindConditionalOutput():
     parent_selection_mode: Either "rank_exponential" or None
 
     """
-    def __init__(self, individuals, goal_entropy, number_of_generations,
+    def __init__(self, individuals, goal_distance, number_of_generations,
                  number_of_children, parent_selection_mode):
         """Create a FindConditionalOutput object"""
         self.individuals = individuals
-        self.entropy_goal = goal_entropy
+        self.goal_distance = goal_distance
         self.number_of_generations = number_of_generations
         self.number_of_children = number_of_children
         self.parent_selection_mode = parent_selection_mode
 
-    def evolve(self, generational, mutation_size):
+    def evolve(self, generational, mutation_size, input_dists,
+               number_of_input_dists):
         """
         Evolve the population
         
@@ -260,9 +275,13 @@ class FindConditionalOutput():
         mutation_size: a number
         generational: Boolean
             Whether to discard the old individuals at every new timestep
+        number_of_input_distributions: an integer
 
         """
         for timestep in range(self.number_of_generations):
+            print("timestep {}, worst {}, best {}".format(
+                timestep, self.individuals[0].score, self.individuals[-1].score
+            ))
             parents = select_parents(
                 self.individuals, self.number_of_children*2,
                 self.parent_selection_mode
@@ -270,7 +289,8 @@ class FindConditionalOutput():
             children = self.create_children(parents, self.number_of_children,
                                             timestep, mutation_size)
             for child in children:
-                child.evaluate(self.entropy_goal)
+                child.evaluate(self.goal_distance, input_dists,
+                               number_of_input_dists)
 
             self.individuals = select_new_population(
                 self.individuals, children, len(self.individuals), 
@@ -293,13 +313,14 @@ class FindConditionalOutput():
         children = []
         for i in range(number_of_children):
             children.append(self.recombine(
-                parents[i], parents[number_of_children+i], timestamp
+                parents[i], parents[number_of_children+i]
             ))
+        for child in children:
+            child.mutate(mutation_size)
 
-        children = [child.mutate(mutation_size) for child in children]
         return children
 
-    def recombine(self, parent1, parent2, timestamp):
+    def recombine(self, parent1, parent2):
         """recombine two individuals to create a new individual
         
         Parameters:
@@ -312,47 +333,11 @@ class FindConditionalOutput():
 
         """
         if np.random.random() > 0.5:
-            genes = np.copy(parent1.conditional_output)
+            genes = np.copy(parent1.cond_output)
         else:
-            genes =  np.copy(parent2.conditional_output)
+            genes = np.copy(parent2.cond_output)
         
-        return ConditionalOutput(genes, timestamp)
+        return ConditionalOutput(genes)
 
 if __name__ == "__main__":
-    distribution_shape = [5]*6
-    number_of_generations = 2000
-    percentage_max_entropy = 0.55
-    population_size = 10
-    number_of_children = 20
-    generational = False
-    mutation_size = 0.0025
-    if percentage_max_entropy>=0.9:
-        mutation_size = 0.10
-    parent_selection_mode = "rank_exponential"
-    number_of_states = reduce(lambda x,y: x*y, distribution_shape)
-    goal_entropy = np.log2(number_of_states)*percentage_max_entropy
-    print("the goal entropy {}".format(goal_entropy))
-    individuals = create_individual_distributions(
-        population_size, number_of_states, "random"
-    )
-    for individual in individuals:
-        individual.evaluate(goal_entropy)
-
-    print("entropy initial population {}".format(
-        entropy(sort_individuals(individuals)[0].genes, base=2)
-    ))
-
-    evolve = FindDistributionEntropy(
-        individuals, goal_entropy, number_of_generations,
-        number_of_children, parent_selection_mode
-    )
-    evolve.evolve(generational, mutation_size)
-    print(evolve.individuals[0].genes[:1000])
-    print("the final entropy {}".format(
-        entropy(evolve.individuals[0].genes, base=2)
-    ))
-
-    genes = produce_distribution_with_entropy(
-        distribution_shape, percentage_max_entropy
-    )
-    print("the final entropy {}".format(entropy(genes, base=2)))
+    pass
