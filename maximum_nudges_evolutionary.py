@@ -9,6 +9,57 @@ import maximum_nudges
 
 TEST = False
 
+def find_synergistic_nudge_with_max_impact(input_dist, cond_output, nudge_size, evolutionary_parameters):
+    """
+    find the synergistic nudge with the maximum impact
+    
+    Parameters:
+    ----------
+    input_dist: nd-array, representing the joint input distribution
+    cond_output: nd-array, representing the output distribution conditioned on the input
+    nudge_size: positive float
+    evolutionary_parameters: dict with the following keys
+        number_of_generations: integer 
+        population_size: integer
+        number_of_children: integer, if generational larger than or equal to population size  
+        generational: Boolean, whether to replace the old generation 
+        parent_selection_mode: "rank_exponential" or None (for random selection)
+        start_mutation_size: positive float, the mutation size at the start
+        change_mutation_size: positive float, 
+            the upper bound on the range the change is selected from uniformly
+        mutations_per_update_step: integer
+
+    Returns: A SynergisticNudge object
+    
+    """
+    #create initial population
+    synergistic_nudges = []
+    for _ in range(evolutionary_parameters["population_size"]):
+        new_synergistic_nudge = SynergisticNudge.create_nudge(
+            input_dist, cond_output, nudge_size, evolutionary_parameters["mutations_per_update_step"], 
+            evolutionary_parameters["start_mutation_size"], evolutionary_parameters["change_mutation_size"], 
+            timestamp=0
+        )
+        synergistic_nudges.append(new_synergistic_nudge)
+    for synergistic_nudge in synergistic_nudges:
+        synergistic_nudge.evaluate()
+
+    initial_impact = ea.sort_individuals(synergistic_nudges)[0].score
+
+    #evolve the population
+    find_max_synergistic_nudge = FindMaximumSynergisticNudge(
+        evolutionary_parameters["generational"], evolutionary_parameters["number_of_children"], 
+        evolutionary_parameters["parent_selection_mode"]
+    )
+    max_synergistic_nudge = find_max_synergistic_nudge.get_max_nudge(
+        synergistic_nudges, evolutionary_parameters["number_of_generations"]
+    )
+    if TEST:
+        print("synergistic nudge: intial impact {}, max impact {}".format(
+            initial_impact, max_synergistic_nudge.score
+        ))
+    return max_synergistic_nudge
+
 class IndividualNudge(ea.Individual):
     """
     A class that represents one individual individual_nudge in a
