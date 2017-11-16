@@ -4,115 +4,68 @@ import numpy as np
 from scipy.stats import entropy
 import probability_distributions
 import nudge_non_causal as nudge
+import evolutionary_algorithms as ea
 
-def sort_individuals(individuals):
-    """
-    Sort the individuals
+def get_cond_output_with_max_distance(
+        input_shape, number_of_output_states, goal_distance, 
+        evolutionary_parameters, input_dists, 
+        number_of_input_distributions=None):
+    """ 
+    Create a conditional output distribution which gives as different 
+    as possible marginal for the different input distributions
 
     Parameters:
     ----------
-    individuals: a list of Individual Objects
-
-    Returns: a sorted list of Individual objects
-
+    input_shape: a list, the number of states of the inut variables
+    number_of_states_output: integer
+    input_distributions: a list of nd-arrays or None
+        Every array representing a probability distribution
+    number_of_input_distributions: integer
+        The number of input distributions to generate using a Dirichlet
+        distribution with all parameters equal to 1.
+    evolutionary_parameters: dict with the keys
+        number_of_generations: integer 
+        population_size: integer
+        number_of_children: integer, if generational larger than or equal to population size  
+        generational: Boolean, whether to replace the old generation 
+        mutation_size: positive float
+        parent_selection_mode: "rank_exponential" or None (for random selection)
+       
     """
-    for individual in individuals:
-        if individual.score is None:
-            raise ValueError("all individuals should have scores")
+    if input_dists is None:
+        number_of_input_states = reduce(lambda x,y: x*y, input_shape)
+        input_dists = [np.random.dirichlet([1]*number_of_input_states)
+                       for _ in range(number_of_input_distributions)]
+        input_dists = [np.reshape(dist, input_shape) for dist in input_dists]
 
-    return sorted(individuals, key=lambda x: x.score)
-
-def select_parents_universal_stochastic(amount_of_parents, sorted_population,
-                                        rank_probabilities):
-    """select the selected parents using stochastic universal selection 
+    #create initial population
+    conditional_outputs = create_condional_distributions(
+        evolutionary_parameters["population_size"], number_of_output_states,
+        len(input_shape)
+    )
+    for conditional_output in conditional_outputs:
+        conditional_output.evaluate(goal_distance, input_dists)
     
-    Parameters:
-    ----------
-    amount_of_parents: integer
-    sorted_population: a list of tuples with scores and numpy arrays
-    rank_probabilities: a numpy array
-        The probabilities to assign to every item.
+    initial_distance = ea.sort_individuals(conditional_outputs)[-1].score
 
-    """
-    population_rank_probabilities = zip(sorted_population, rank_probabilities)
-    points = (np.linspace(0, 1, amount_of_parents, False) +
-              np.random.uniform(0, 1.0/amount_of_parents))
+    #evolve the population
+    find_conditional_output = FindConditionalOutput(
+        conditional_outputs, goal_distance, 
+        evolutionary_parameters["number_of_generations"], 
+        evolutionary_parameters["number_of_children"], 
+        evolutionary_parameters["parent_selection_mode"]
+    )
+    find_conditional_output.evolve(
+        evolutionary_parameters["generational"], 
+        evolutionary_parameters["mutation_size"], 
+        input_dists
+    )
 
-    #print("the shape of the points {}".format(points.shape))
-
-    random.shuffle(population_rank_probabilities)
-    population = zip(*population_rank_probabilities)[0]
-    rank_probabilities = zip(*population_rank_probabilities)[1]
-    bins = np.zeros(len(sorted_population)+1)
-    probability_mass = 0 
-    for i in range(len(sorted_population)):
-        bins[i+1] = rank_probabilities[i] + probability_mass
-        probability_mass += rank_probabilities[i]
-
-    parent_indices, _ = np.histogram(points, bins)
-    parents = []
-    for index, amount_of_samples in enumerate(parent_indices):
-        for i in range(amount_of_samples):
-            parents.append(population[index])
-
-    return parents
-
-def mutate_conditional_distribution_uniform(distribution, mutation_size):
-    """
-    Mutate the probability distribution
-
-    Parameters:
-    ----------
-    distribution: nd-array
-        Representing a conditional output diistribtution (with the the
-        output on the last axis)
-    mutation_size: a positive float
-
-    Note: It happens in place
-
-    """
-    input_shape = distribution.shape[:-1]
-    number_of_output_states = distribution.shape[-1]
-    lists_of_possible_states_per_variable = [
-        range(states) for states in input_shape
-    ]
-    for state in itertools.product(*lists_of_possible_states_per_variable):
-        mutation = nudge.find_noise_vector(number_of_output_states, 
-                                           mutation_size)
-        distribution[state] = nudge.nudge_states(mutation, distribution[state])
-
-        if abs(np.sum(distribution[state])-1) > 10**-7:
-            raise ValueError()
-
-    return distribution
-
-
-def select_new_population(old_individuals, new_individuals, size, 
-                          generational):
-    """
-    Select the new individuals
-
-    Parameters:
-    ----------
-    old_individuals: list of Individual Objects
-    new_individuals: list of Individual Objects
-    size: number
-        The population size
-    generational: Boolean
-        whether to discard the old population
-
-    Returns:
-    -------
-    a list of Individual objects
-
-    """
-    if generational:
-        individuals = new_individuals
-    else:
-        individuals = old_individuals+new_individuals
-
-    return sort_individuals(individuals)[-size:]
-
+    final_distance = find_conditional_output.get_best_individual()
+    print("initial distance {}, distance after evolution {}".format(
+        initial_distance, final_distance
+    )) 
+    return find_conditional_output.individuals[0]
 
 class ConditionalOutput():
     """
@@ -130,23 +83,36 @@ class ConditionalOutput():
         Parameters:
         ----------
         cond_output: nd-array
-            representing a conditional probability distribution
+            Representing a conditional output diistribtution (with the the
+            output on the last axis)
 
         """
         self.cond_output = cond_output
         self.score = None
 
     def mutate(self, mutation_size):
-        """mutate the distribution
+        """
+        Mutate the probability distribution
 
         Parameters:
         ----------
         mutation_size: a positive float
 
         """
-        self.cond_output = mutate_conditional_distribution_uniform(
-            self.cond_output, mutation_size
-        )
+        input_shape = self.cond_output.shape[:-1]
+        number_of_output_states = self.cond_output.shape[-1]
+        lists_of_possible_states_per_variable = [
+            range(states) for states in input_shape
+        ]
+        for state in itertools.product(*lists_of_possible_states_per_variable):
+            mutation = nudge.find_noise_vector(number_of_output_states, 
+                                               mutation_size)
+            self.cond_output[state] = nudge.nudge_states(
+                mutation, self.cond_output[state]
+            )
+
+            if abs(np.sum(self.cond_output[state])-1) > 10**-7:
+                raise ValueError()
 
     def evaluate(self, goal_distance, input_dists=None, 
                  number_of_input_dists=None):
@@ -182,35 +148,6 @@ class ConditionalOutput():
             [np.sum(np.absolute(output-average_dist)) for output in outputs]
         )
         self.score = abs(distance-goal_distance)
-
-def select_parents(individuals, number_of_parents, mode):
-    """
-    selectDefaults to random selection
-    
-    Parameters:
-    ----------
-    individuals: list of Individual objects
-    number_of_parents: a number
-    mode: string
-        Either "rank_exponential" or it will be done randomly
-
-    Returns: list of Individual objects
-
-    """
-    #print("number of parents {}".format(number_of_parents))
-    if mode=="rank_exponential":
-        rank_scores_exponential = 1-np.exp(-1*np.arange(len(individuals)))
-        scores = rank_scores_exponential/np.sum(rank_scores_exponential)
-        #print("length of scores {} ".format(scores.shape))
-        #print(scores)
-    else:
-        scores = np.array([1.0/len(individuals)] * number_of_parents)
-        #print("the length of scores {}".format(scores.shape))
-
-    parents = select_parents_universal_stochastic(
-        number_of_parents, sort_individuals(individuals), scores
-    )
-    return parents
 
 def create_condional_distributions(
             number_of_conditional_outputs, number_of_states, 
@@ -265,8 +202,10 @@ class FindConditionalOutput():
         self.number_of_children = number_of_children
         self.parent_selection_mode = parent_selection_mode
 
-    def evolve(self, generational, mutation_size, input_dists,
-               number_of_input_dists):
+    def get_best_individual(self):
+        return ea.sort_individuals(self.individuals)[0]
+
+    def evolve(self, generational, mutation_size, input_dists):
         """
         Evolve the population
         
@@ -280,19 +219,18 @@ class FindConditionalOutput():
         """
         for timestep in range(self.number_of_generations):
             print("timestep {}, worst {}, best {}".format(
-                timestep, self.individuals[0].score, self.individuals[-1].score
+                timestep, self.individuals[-1].score, self.individuals[0].score
             ))
-            parents = select_parents(
+            parents = ea.select_parents(
                 self.individuals, self.number_of_children*2,
                 self.parent_selection_mode
             )
             children = self.create_children(parents, self.number_of_children,
                                             timestep, mutation_size)
             for child in children:
-                child.evaluate(self.goal_distance, input_dists,
-                               number_of_input_dists)
+                child.evaluate(self.goal_distance, input_dists)
 
-            self.individuals = select_new_population(
+            self.individuals = ea.select_new_population(
                 self.individuals, children, len(self.individuals), 
                 generational
             )
