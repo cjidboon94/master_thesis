@@ -1,5 +1,4 @@
 import random
-import nudge_new as nudge
 import numpy as np
 from scipy.stats import entropy
 
