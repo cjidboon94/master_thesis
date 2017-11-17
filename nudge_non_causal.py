@@ -387,8 +387,8 @@ def select_random_synergistic_mutation_states(distribution):
 
     #print(other_states)
     states1, states2, states3, states4 = (
-        copy.copy(other_vars), copy.copy(other_vars), copy.copy(other_vars),
-        copy.copy(other_vars)
+        copy.copy(other_states), copy.copy(other_states), 
+        copy.copy(other_states), copy.copy(other_states)
     )
     states1[nudged_var1] = states_var1[0]
     states1[nudged_var2] = states_var2[0]

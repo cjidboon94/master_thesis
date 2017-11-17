@@ -6,6 +6,8 @@ import probability_distributions
 import nudge_non_causal as nudge
 import evolutionary_algorithms as ea
 
+TEST = False
+
 def get_cond_output_with_max_distance(
         input_shape, number_of_output_states, goal_distance, 
         evolutionary_parameters, input_dists, 
@@ -26,7 +28,8 @@ def get_cond_output_with_max_distance(
     evolutionary_parameters: dict with the keys
         number_of_generations: integer 
         population_size: integer
-        number_of_children: integer, if generational larger than or equal to population size  
+        number_of_children: integer, 
+            if generational larger than or equal to population size  
         generational: Boolean, whether to replace the old generation 
         mutation_size: positive float
         parent_selection_mode: "rank_exponential" or None (for random selection)
@@ -43,6 +46,12 @@ def get_cond_output_with_max_distance(
         evolutionary_parameters["population_size"], number_of_output_states,
         len(input_shape)
     )
+    #for dist in conditional_outputs:
+    #    found_sum = np.sum(dist.cond_output)
+    #    expected_sum = reduce(lambda x,y: x*y, dist.cond_output.shape[:-1])
+    #    if abs(found_sum-expected_sum) > 10**(-7):
+    #        raise ValueError()
+
     for conditional_output in conditional_outputs:
         conditional_output.evaluate(goal_distance, input_dists)
     
@@ -63,7 +72,7 @@ def get_cond_output_with_max_distance(
 
     final_distance = find_conditional_output.get_best_individual()
     print("initial distance {}, distance after evolution {}".format(
-        initial_distance, final_distance
+        initial_distance, final_distance.score
     )) 
     return find_conditional_output.individuals[0]
 
@@ -129,7 +138,9 @@ class ConditionalOutput():
         if input_dists is None:
             input_dists = []
             for i in range(number_of_input_dists):
-                input_dist = np.random.dirichlet(reduce(lambda x,y: x*y, input_shape)*[1])
+                input_dist = np.random.dirichlet(
+                    reduce(lambda x,y: x*y, input_shape)*[1]
+                )
                 input_dists.append(np.reshape(input_dist, input_shape))
 
         number_of_input_vars = len(input_dists[0].shape)
@@ -218,9 +229,10 @@ class FindConditionalOutput():
 
         """
         for timestep in range(self.number_of_generations):
-            print("timestep {}, worst {}, best {}".format(
-                timestep, self.individuals[-1].score, self.individuals[0].score
-            ))
+            if TEST:
+                print("timestep {}, worst {}, best {}".format(
+                    timestep, self.individuals[-1].score, self.individuals[0].score
+                ))
             parents = ea.select_parents(
                 self.individuals, self.number_of_children*2,
                 self.parent_selection_mode
