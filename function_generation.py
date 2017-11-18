@@ -6,7 +6,7 @@ import probability_distributions
 import nudge_non_causal as nudge
 import evolutionary_algorithms as ea
 
-TEST = False
+TEST = True
 
 def get_cond_output_with_max_distance(
         input_shape, number_of_output_states, goal_distance, 
@@ -32,6 +32,7 @@ def get_cond_output_with_max_distance(
             if generational larger than or equal to population size  
         generational: Boolean, whether to replace the old generation 
         mutation_size: positive float
+        change_mutation_size: positive float
         parent_selection_mode: "rank_exponential" or None (for random selection)
        
     """
@@ -42,10 +43,16 @@ def get_cond_output_with_max_distance(
         input_dists = [np.reshape(dist, input_shape) for dist in input_dists]
 
     #create initial population
-    conditional_outputs = create_condional_distributions(
+    conditional_outputs = create_conditonal_distributions(
         evolutionary_parameters["population_size"], number_of_output_states,
         len(input_shape)
     )
+    mutation_size = evolutionary_parameters["mutation_size"]
+    change_mutation_size = evolutionary_parameters["change_mutation_size"]
+    conditional_outputs = [
+        ConditionalOutput(cond_output, mutation_size, change_mutation_size)
+        for cond_output in conditional_outputs
+    ]
     #for dist in conditional_outputs:
     #    found_sum = np.sum(dist.cond_output)
     #    expected_sum = reduce(lambda x,y: x*y, dist.cond_output.shape[:-1])
@@ -66,7 +73,6 @@ def get_cond_output_with_max_distance(
     )
     find_conditional_output.evolve(
         evolutionary_parameters["generational"], 
-        evolutionary_parameters["mutation_size"], 
         input_dists
     )
 
@@ -83,10 +89,12 @@ class ConditionalOutput():
     cond_output: nd-array, 
         a conditional probability distribution (last axis are the conditional
         probabilities)
+    mutation_size: a positive number
+    change_mutation_size: a postive number
     score: a number
 
     """
-    def __init__(self, cond_output):
+    def __init__(self, cond_output, start_mutation_size, change_mutation_size):
         """create an individual for an individual algorithms
 
         Parameters:
@@ -94,20 +102,29 @@ class ConditionalOutput():
         cond_output: nd-array
             Representing a conditional output diistribtution (with the the
             output on the last axis)
+        
 
         """
         self.cond_output = cond_output
+        self.mutation_size = start_mutation_size
+        self.change_mutation_size = change_mutation_size
         self.score = None
 
-    def mutate(self, mutation_size):
+    def mutate(self, timestep):
         """
         Mutate the probability distribution
 
-        Parameters:
-        ----------
-        mutation_size: a positive float
-
         """
+        #first update the mutation size
+        #self.mutation_size += max(
+        #    np.random.uniform(-self.change_mutation_size, self.change_mutation_size), 0
+        #)
+        old_mutation_size = self.mutation_size 
+        proposed_change = np.random.uniform(-self.change_mutation_size, self.change_mutation_size)
+        self.mutation_size = max(0, self.mutation_size + proposed_change)
+        #print("{} {}".format(self.change_mutation_size, proposed_change))
+        #print("timestep {} old mutation size {} mutation_size {}".format(timestep, old_mutation_size, self.mutation_size))
+
         input_shape = self.cond_output.shape[:-1]
         number_of_output_states = self.cond_output.shape[-1]
         lists_of_possible_states_per_variable = [
@@ -115,7 +132,7 @@ class ConditionalOutput():
         ]
         for state in itertools.product(*lists_of_possible_states_per_variable):
             mutation = nudge.find_noise_vector(number_of_output_states, 
-                                               mutation_size)
+                                               self.mutation_size)
             self.cond_output[state] = nudge.nudge_states(
                 mutation, self.cond_output[state]
             )
@@ -160,12 +177,12 @@ class ConditionalOutput():
         )
         self.score = abs(distance-goal_distance)
 
-def create_condional_distributions(
+def create_conditonal_distributions(
             number_of_conditional_outputs, number_of_states, 
             number_of_input_variables
             ):
     """
-    Create a list of ContionalOutput objects
+    Create conditional output arrays 
 
     Parameters:
     ----------
@@ -175,7 +192,7 @@ def create_condional_distributions(
 
     Returns:
     -------
-    a list of ConditionalOutput objects
+    a list of nd-arrays representing conditonal outputs 
 
     """
     conditional_outputs = []
@@ -186,7 +203,7 @@ def create_condional_distributions(
             for i in range(number_of_states**(number_of_input_variables))
         ]
         cond_output = np.reshape(np.array(cond_output), cond_shape)
-        conditional_outputs.append(ConditionalOutput(cond_output))
+        conditional_outputs.append(cond_output)
 
     return conditional_outputs
 
@@ -216,13 +233,12 @@ class FindConditionalOutput():
     def get_best_individual(self):
         return ea.sort_individuals(self.individuals)[0]
 
-    def evolve(self, generational, mutation_size, input_dists):
+    def evolve(self, generational, input_dists):
         """
         Evolve the population
         
         Parameters:
         ----------
-        mutation_size: a number
         generational: Boolean
             Whether to discard the old individuals at every new timestep
         number_of_input_distributions: an integer
@@ -237,8 +253,7 @@ class FindConditionalOutput():
                 self.individuals, self.number_of_children*2,
                 self.parent_selection_mode
             )
-            children = self.create_children(parents, self.number_of_children,
-                                            timestep, mutation_size)
+            children = self.create_children(parents, self.number_of_children, timestep)
             for child in children:
                 child.evaluate(self.goal_distance, input_dists)
 
@@ -247,8 +262,7 @@ class FindConditionalOutput():
                 generational
             )
 
-    def create_children(self, parents, number_of_children, timestamp,
-                        mutation_size):
+    def create_children(self, parents, number_of_children, timestep):
         """
         Create new individuals.
 
@@ -256,8 +270,6 @@ class FindConditionalOutput():
         ----------
         parents: a list of individual objects
         number_of_children: an integer
-        timestamp: a number
-        mutation_size: a number
 
         """
         children = []
@@ -266,7 +278,7 @@ class FindConditionalOutput():
                 parents[i], parents[number_of_children+i]
             ))
         for child in children:
-            child.mutate(mutation_size)
+            child.mutate(timestep)
 
         return children
 
@@ -282,12 +294,23 @@ class FindConditionalOutput():
         Returns: Individual object
 
         """
-        if np.random.random() > 0.5:
+        gene_choice = np.random.choice([1,2])
+        mutation_size_choice = np.random.choice([1,2])
+        if gene_choice == 1:
             genes = np.copy(parent1.cond_output)
         else:
             genes = np.copy(parent2.cond_output)
+
+        if mutation_size_choice == 1:
+            mutation_size = parent1.mutation_size
+            change_mutation_size = parent1.change_mutation_size
+            #change_mutation_size = parent2.mutation_size
+        else:
+            mutation_size = parent2.mutation_size
+            change_mutation_size = parent2.change_mutation_size
+            #change_mutation_size = parent2.mutation_size
         
-        return ConditionalOutput(genes)
+        return ConditionalOutput(genes, mutation_size, change_mutation_size)
 
 if __name__ == "__main__":
     pass
