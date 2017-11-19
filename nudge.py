@@ -464,7 +464,10 @@ def select_subset(arr, threshold):
 
     return minus_states
 
-def impact_nudge_causal_output(distribution, function_indices, new_input_distribution):
+def impact_nudge_causal_output(
+        distribution, function_indices, new_input_distribution,
+        use_l1norm=False
+        ):
     """
     Calculate the impact of a nudge of the input distribution on the output. 
     Assuming the output is causally determined using using the input.
@@ -490,8 +493,11 @@ def impact_nudge_causal_output(distribution, function_indices, new_input_distrib
         new_input_distribution, conditional, conditional_labels
     ))
     marginal_output_new = distribution_new.marginalize(function_indices)  
-    kl_divergence = entropy(marginal_output_old, marginal_output_new) 
-    return kl_divergence
+    if use_l1norm:
+        return np.sum(np.absolute(marginal_output_old, marginal_output_new))
+    else:
+        kl_divergence = entropy(marginal_output_old, marginal_output_new) 
+        return kl_divergence
         
 def perform_nudge(distribution, minus_state, plus_state, proposed_nudge):
     """
