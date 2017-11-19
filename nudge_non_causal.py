@@ -1,4 +1,5 @@
 import numpy as np
+from scipy import stats
 from probability_distributions import ProbabilityArray
 import probability_distributions
 import copy
@@ -41,7 +42,7 @@ def find_nudge_impact(old_input, new_input, conditional_output, measure="absolut
     if measure=="absolute":
         return np.sum(np.absolute(old_output.flatten()-new_output.flatten()))
     elif measure=="kl-divergence":
-        return entropy(old_output.flatten(), new_output.flatten(), base=2)
+        return stats.entropy(old_output.flatten(), new_output.flatten(), base=2)
     else:
         raise ValueError("provide a valid measure")
 
