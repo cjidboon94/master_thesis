@@ -494,7 +494,7 @@ def impact_nudge_causal_output(
     ))
     marginal_output_new = distribution_new.marginalize(function_indices)  
     if use_l1norm:
-        return np.sum(np.absolute(marginal_output_old, marginal_output_new))
+        return np.sum(np.absolute(marginal_output_old-marginal_output_new))
     else:
         kl_divergence = entropy(marginal_output_old, marginal_output_new) 
         return kl_divergence
