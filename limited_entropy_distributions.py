@@ -39,7 +39,7 @@ def get_dist_with_entropy(number_of_states, entropy_size,
     if verbose:
         print("best initial score: {}".format(best_initial_dist.score))
 
-    for _ in range(evolution_params["number_of_generations"]):
+    for i in range(evolution_params["number_of_generations"]):
         population.evolve(
             entropy_size, evolution_params["number_of_children"],
             evolution_params["parent_selection_mode"],
@@ -48,9 +48,13 @@ def get_dist_with_entropy(number_of_states, entropy_size,
             evolution_params["number_of_mutations"],
             evolution_params["mutation_size"]
         )
+        best_score=population.get_best_distribution().score
         if verbose:
-            best_score=population.get_best_distribution().score
             print("best score: {}".format(best_score))
+        if best_score < evolution_params["early_stopping_criterium"]:
+            print("stopped early at timestep {}".format(i))
+            return population.get_best_distribution().distribution
+
             
     return population.get_best_distribution().distribution
 
