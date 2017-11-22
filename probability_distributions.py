@@ -143,6 +143,74 @@ class ProbabilityArray():
 
         return joint_distribution, variable1_labels, variable2_labels
 
+    def find_conditional_accounting_for_zero_marginals(
+            self, marginal_variables, conditional_variables, 
+            conditional_state_gen
+            ):
+	"""create the conditional distribution for the selected_indices given 
+	the conditional_indices for the joint_distribution
+	
+	Parameters:
+	----------
+	marginal_indices: set of integers
+            variables that are not conditioned on but are included
+	conditional_indices: set of integers
+            variables that are conditioned on
+        conditional_state_gen: a generator
+            Every time a marginal of the variables that are conditioned on
+            is zero the generator is called for an "artificial" conditional
+            state.
+	
+	Returns: conditional_distribution, marginal_labels, conditional_labels 
+	-------
+        conditional_distribution: a numpy array
+        marginal_labels: list of integers
+            The variables that are NOT conditioned on
+        conditional_labels: list of integers
+            The variables that are conditioned on
+
+	"""
+        joint_distribution, marginal_labels, conditional_labels = (
+            self.find_joint_marginal(marginal_variables, conditional_variables)
+        ) 
+        
+        marginal_conditional = self.marginalize(conditional_labels,
+                                                joint_distribution)
+        conditional_distribution = np.copy(joint_distribution)
+
+        #first deal with the conditional values for zero marginals
+        ix = np.argwhere(marginal_conditional==0)
+        for element in ix:
+            conditional_state = next(conditional_state_gen)
+            conditional_distribution[tuple(element)] = conditional_state
+
+        #set the rest of the values
+        it = np.nditer(joint_distribution, flags=['multi_index'])
+        while not it.finished:
+            if it.value == 0:
+                it.iternext()
+                continue
+            conditional_arguments = tuple(
+                [it.multi_index[i] for i in conditional_labels]
+            )
+	    conditional_distribution[it.multi_index] = (
+                it.value/marginal_conditional[conditional_arguments]
+	    )
+	    it.iternext()
+	
+        conditional_shape = [i for count, i in enumerate(joint_distribution.shape)
+                             if count in conditional_labels]
+        total_sum_conditional_distribution = reduce(lambda x,y: x*y, 
+                                                    conditional_shape)
+        if abs(np.sum(conditional_distribution)-total_sum_conditional_distribution)> 10**(-8):
+            print("conditional distribution")
+            print(conditional_distribution)
+            raise ValueError("sum is {} while it should be {}".format(
+                np.sum(conditional_distribution), total_sum_conditional_distribution
+            ))
+
+        return (conditional_distribution, marginal_labels, conditional_labels)
+
 def compute_joint(marginal, conditional, conditional_labels):
     """compute the joint given the marginal and the conditional
     

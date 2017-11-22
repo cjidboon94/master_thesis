@@ -163,6 +163,66 @@ class TestProbabilityArray(unittest.TestCase):
                                                         conditional_labels)
         self.assertTrue(np.allclose(joint, self.probability_array2))
 
+    
+    def test1_find_conditional_accounting_for_zero_marginals(self):
+        arr = np.array([
+            [
+                [0.3, 0.1, 0.01],
+                [0.0, 0.0, 0.0]
+            ],
+            [
+                [0.15, 0.05, 0.07],
+                [0.0, 0.27, 0.05]
+            ]
+        ])
+        probability_array = probability_distributions.ProbabilityArray(arr)
+        def produce_conditional_states():
+            yield np.array([0.5, 0.3, 0.2])
+            yield np.array([1.0, 0.0, 0.0])
+
+        generator = produce_conditional_states()
+
+        marginal_variables = set([2])
+        conditional_variables = set([0, 1])
+        expected_conditional = np.array([
+            [
+                [0.3/0.41, 0.1/0.41, 0.01/0.41],
+                [0.5, 0.3, 0.2]
+            ],
+            [
+                [0.15/0.27, 0.05/0.27, 0.07/0.27],
+                [0.0/0.32, 0.27/0.32, 0.05/0.32]
+            ]
+        ])       
+        conditional, marginal_labels, conditional_labels = (
+            probability_array.find_conditional_accounting_for_zero_marginals(
+                marginal_variables, conditional_variables, 
+                generator
+            )
+        )
+        self.assertTrue(np.allclose(expected_conditional, conditional))
+
+    def test_find_conditional_accounting_for_zero_marginals_normal_joint(self):
+        probability_arr = ProbabilityArray(self.probability_array)
+        def produce_conditional_states():
+            yield np.array([0.5, 0.3])
+            yield np.array([1.0, 0.0])
+
+        generator = produce_conditional_states()
+        out, labels1, labels2 = (
+            probability_arr.find_conditional_accounting_for_zero_marginals(
+                set([0]), set([1]), generator
+            )
+        )
+        expected = np.array(
+            [
+                [0.2/0.35, 0.4/0.65],
+                [0.15/0.35, 0.25/0.65]
+            ]
+        )
+        self.assertTrue(np.allclose(out, expected))
+        self.assertEqual(labels1, set([0]))
+        self.assertEqual(labels2, set([1]))
 
     def test1_produce_distribution_with_entropy_evolutionary(self):
         shape = tuple([3,3,3,3,4,4])
@@ -282,5 +342,4 @@ class TestProbabilityArray(unittest.TestCase):
         dist2 = np.copy(dist)
         out = probability_distributions.remove_zero_marginals(dist)
         self.assertEqual(dist.shape, dist2.shape )
-
 
