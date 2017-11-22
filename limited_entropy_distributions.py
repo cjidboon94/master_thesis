@@ -7,6 +7,8 @@ import numpy as np
 from scipy import stats
 import evolutionary_algorithms as ea
 
+PRINT = True
+
 def get_dist_percentage_max_entropy(dist_shape, percentage_max_entropy,
                                     evolutionary_parameters, verbose=False):
     number_of_states = reduce(lambda x,y: x*y, dist_shape)
@@ -44,15 +46,18 @@ def get_dist_with_entropy(number_of_states, entropy_size,
             entropy_size, evolution_params["number_of_children"],
             evolution_params["parent_selection_mode"],
             evolution_params["population_size"],
-            evolution_params["generational"],
-            evolution_params["number_of_mutations"],
-            evolution_params["mutation_size"]
+            generational=evolution_params["generational"],
+            mutation_method=evolution_params["mutation_method"],
+            mutation_size=evolution_params["mutation_size"],
+            number_of_mutations=evolution_params["number_of_mutations"],
         )
         best_score=population.get_best_distribution().score
         if verbose:
             print("best score: {}".format(best_score))
         if best_score < evolution_params["early_stopping_criterium"]:
-            print("stopped early at timestep {}".format(i))
+            if PRINT:
+                print("stopped early at timestep {}".format(i))
+            
             return population.get_best_distribution().distribution
 
             
@@ -98,7 +103,33 @@ class Distribution(ea.Individual):
         new_dist = np.random.dirichlet(number_of_states*[1])
         return cls(new_dist)
 
-    def mutate_step_wise(self, number_of_mutations, max_mutation_size):
+    def mutate(self, mode, mutation_size, number_of_mutations=None):
+        """
+        Parameters:
+        ----------
+        mode: a string
+            Should be either {"uniform", "dirichlet", "step_wise_before"
+            "step_wise_after"}
+
+        """
+        if mode == "uniform":
+            self.mutate_uniform(mutation_size)
+        elif mode == "dirichlet":
+            self.mutate_dirichlet(mutation_size)
+        elif mode == "step_wise_before":
+            self.mutate_step_wise_adjust_before(
+                max_mutation_size=mutation_size, 
+                number_of_mutations=number_of_mutations
+            )
+        elif mode == "step_wise_after":
+            self.mutate_step_wise_adjust_after(
+                max_mutation_size=mutation_size, 
+                number_of_mutations=number_of_mutations
+            )
+        else:
+            raise ValueError("Provide a valid mode")
+
+    def mutate_step_wise_adjust_after(self, number_of_mutations, max_mutation_size):
         negative_states = np.random.choice(
             self.distribution.nonzero()[0], number_of_mutations, replace=False
         )
@@ -114,6 +145,63 @@ class Distribution(ea.Individual):
         self.distribution[positive_states] = (
             self.distribution[positive_states] + mutations
         )
+        if abs(np.sum(self.distribution)-1) > 10**-7:
+            raise ValueError()
+        if np.any(self.distribution < 0):
+            raise ValueError()
+
+    def mutate_step_wise_adjust_before(self, number_of_mutations, max_mutation_size):
+        """
+        Mutate the distribution by selecting a number of negative and 
+        positive states
+
+        Note: 
+        ----
+        For this method if a state's probability is lower than the 
+        max_mutation_size the max_mutation_size is adjusted BEFORE
+        generating a mutation size rather than after. This should result
+        in fewer states being set to zero.
+
+        """
+        negative_states = np.random.choice(
+            self.distribution.nonzero()[0], number_of_mutations, replace=False
+        )
+        positive_states = np.random.choice(
+            self.distribution.shape[0], number_of_mutations, replace=False
+        )
+        mutations = np.array([
+            float(np.random.uniform(0, min(max_mutation_size, probability), 1))
+            for probability in self.distribution[negative_states]
+        ])
+        print(mutations)
+        self.distribution[negative_states] = (
+            self.distribution[negative_states] - mutations
+        )
+        self.distribution[positive_states] = (
+            self.distribution[positive_states] + mutations
+        )
+        if abs(np.sum(self.distribution)-1) > 10**-7:
+            raise ValueError()
+        if np.any(self.distribution < 0):
+            raise ValueError()
+    
+    def mutate_dirichlet(self, mutation_size):
+        """
+        Mutate the probability distribution
+
+        Parameters:
+        ----------
+        mutation_size: a float
+            the mutation size applied to the entire distribution, rather
+            than only a single state
+
+        """
+        mutation = mutation_size * np.random.dirichlet([1]*self.distribution.shape)
+        mutation -= np.mean(mutation)
+        self.distribution = np.minimum(
+            np.maximum(self.distribution+mutation, 0), 1
+        )
+        self.distribution = self.distribution/np.sum(self.distribution)
         if abs(np.sum(self.distribution)-1) > 10**-7:
             raise ValueError()
         if np.any(self.distribution < 0):
@@ -157,8 +245,8 @@ class DistributionPopulation():
         self.distributions = distributions
 
     def evolve(self, entropy_goal, number_of_children, parent_selection_mode,
-               new_population_size, generational, number_of_mutations,
-               mutation_size):
+               new_population_size, generational, mutation_method, mutation_size,
+               number_of_mutations=None):
         """
         Evolve the population
         
@@ -175,8 +263,9 @@ class DistributionPopulation():
         parents = ea.select_parents(
             self.distributions, number_of_children, parent_selection_mode
         )
-        children = self.create_children(parents, number_of_children,
-                                        number_of_mutations, mutation_size)
+        children = self.create_children(parents, number_of_children, 
+                                        mutation_method, mutation_size,
+                                        number_of_mutations)
         for child in children:
             child.evaluate(entropy_goal)
 
@@ -185,7 +274,8 @@ class DistributionPopulation():
         )
 
     def create_children(self, parents, number_of_children, 
-                        number_of_mutations, mutation_size):
+                        mutation_method, mutation_size,
+                        number_of_mutations=None):
         """
         Create new individuals
 
@@ -199,7 +289,7 @@ class DistributionPopulation():
         children = []
         for parent in parents:
             child = Distribution(np.copy(parent.distribution))
-            child.mutate_step_wise(number_of_mutations, mutation_size)
+            child.mutate(mutation_method, mutation_size, number_of_mutations)
             children.append(child)
 
         return children
