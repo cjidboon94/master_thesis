@@ -35,7 +35,9 @@ def get_dist_percentage_max_entropy_exactly(
         ):
     number_of_states = reduce(lambda x,y: x*y, dist_shape)
     goal_entropy = np.log2(number_of_states)*percentage_max_entropy
-    dist = produce_dist_with_entropy(goal_entropy, number_of_states, max_change)
+    dist = produce_dist_with_entropy_exactly(
+        goal_entropy, number_of_states, max_change
+    )
     return np.reshape(dist, dist_shape)
 
 def get_dist_percentage_max_entropy(dist_shape, percentage_max_entropy,
