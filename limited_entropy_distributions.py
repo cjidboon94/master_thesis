@@ -9,6 +9,35 @@ import evolutionary_algorithms as ea
 
 PRINT = True
 
+def produce_dist_with_entropy_exactly(entropy_size_goal, number_of_states, 
+                                      max_change):
+    dist = np.random.dirichlet([1]*number_of_states)
+    entropy_dist = stats.entropy(dist, base=2)
+    while entropy_dist > entropy_size_goal:
+        state1, state2 = np.random.choice(number_of_states, 2, replace=False)
+        if dist[state1] < dist[state2]:
+            bound = min(max_change, dist[state1])
+            mutation = np.random.uniform(0, bound, 1)
+            dist[state1] -= mutation
+            dist[state2] += mutation
+        else:
+            bound = min(max_change, dist[state2])
+            mutation = np.random.uniform(0, bound, 1)
+            dist[state1] += mutation
+            dist[state2] -= mutation
+            
+        entropy_dist = stats.entropy(dist, base=2)
+            
+    return dist
+
+def get_dist_percentage_max_entropy_exactly(
+        dist_shape, percentage_max_entropy, max_change
+        ):
+    number_of_states = reduce(lambda x,y: x*y, dist_shape)
+    goal_entropy = np.log2(number_of_states)*percentage_max_entropy
+    dist = produce_dist_with_entropy(goal_entropy, number_of_states, max_change)
+    return np.reshape(dist, dist_shape)
+
 def get_dist_percentage_max_entropy(dist_shape, percentage_max_entropy,
                                     evolutionary_parameters, verbose=False):
     number_of_states = reduce(lambda x,y: x*y, dist_shape)
@@ -173,7 +202,6 @@ class Distribution(ea.Individual):
             float(np.random.uniform(0, min(max_mutation_size, probability), 1))
             for probability in self.distribution[negative_states]
         ])
-        print(mutations)
         self.distribution[negative_states] = (
             self.distribution[negative_states] - mutations
         )
