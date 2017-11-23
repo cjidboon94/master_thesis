@@ -173,7 +173,6 @@ class Distribution(ea.Individual):
             float(np.random.uniform(0, min(max_mutation_size, probability), 1))
             for probability in self.distribution[negative_states]
         ])
-        print(mutations)
         self.distribution[negative_states] = (
             self.distribution[negative_states] - mutations
         )
