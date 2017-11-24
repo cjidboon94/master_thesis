@@ -1,0 +1,10 @@
+{
+  "mutations_per_update_step": 10, 
+  "population_size": 10, 
+  "generational": true, 
+  "parent_selection_mode": "rank_exponential", 
+  "number_of_children": 40, 
+  "number_of_generations": 1000, 
+  "start_mutation_size": 1e-05, 
+  "change_mutation_size": 4e-05
+}
