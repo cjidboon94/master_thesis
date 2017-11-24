@@ -3,7 +3,30 @@ import os
 import numpy as np
 from scipy import stats
 
-def get_folder_name(path, input_or_conditional, distribution_type, number_of_variables, number_of_states=5):
+
+def generate_distributions(path_to_files, file_format, distribution_numbers):
+    for i in distribution_numbers:
+        file_name = path_to_files + file_format.format(i)
+        #print(file_name)
+        with open(file_name, 'rb') as f:
+            yield np.load(f)
+
+def get_system_distributions_limited_entropy(
+        path_to_limited_entropy_system_dists, entropy_size,
+        number_of_vars, number_of_states, filename_format, dist_numbers
+        ):
+    """ Get distributions with a limited system entropy"""
+    entropy_size_dir_format = "entropy{}/"
+    var_states_dir_format = "{}var_{}states/"
+    directory = (
+        path_to_limited_entropy_system_dists
+        + entropy_size_dir_format.format(entropy_size) 
+        + var_states_dir_format.format(number_of_vars, number_of_states)
+    )
+    return generate_distributions(directory, filename_format, dist_numbers)
+
+
+def get_folder_name_non_system(path, input_or_conditional, distribution_type, number_of_variables, number_of_states=5):
     """
     Parameters:
     ----------
@@ -35,29 +58,27 @@ def get_folder_name(path, input_or_conditional, distribution_type, number_of_var
     file_folder = "{}var_{}states".format(number_of_variables, number_of_states)
     return path + dist_folder + specific_dist_folder + '/' + file_folder + '/'
 
-def generate_distributions(path_to_files, file_format, distribution_numbers):
-    for i in distribution_numbers:
-        file_name = path_to_files + file_format.format(i)
-        #print(file_name)
-        with open(file_name, 'rb') as f:
-            yield np.load(f)
-
-def get_input_dists(distribution_path, distribution_type, distribution_numbers, number_of_vars, number_of_states=5):
-    dist_folder = get_folder_name(
+def get_input_dists_non_system(
+        distribution_path, distribution_type, distribution_numbers,
+        number_of_vars, number_of_states=5
+        ):
+    dist_folder = get_folder_name_non_system(
         distribution_path, "input", distribution_type, number_of_vars, number_of_states
     )
     return generate_distributions(dist_folder, "dist_{}.npy", distribution_numbers)
     
-def get_conditional_output_dists(distribution_path, distribution_type, distribution_numbers, 
-                                 number_of_vars, number_of_states=5):
-    dist_folder = get_folder_name(
+def get_conditional_output_dists_non_system(
+        distribution_path, distribution_type, distribution_numbers,
+        number_of_vars, number_of_states=5
+        ):
+    dist_folder = get_folder_name_non_system(
         distribution_path, "conditional", distribution_type, number_of_vars, number_of_states
     )
     return generate_distributions(dist_folder, "cond_dist_{}.npy", distribution_numbers)     
 
 if __name__ == "__main__":
     DISTRIBUTION_PATH = "/home/joboti/azumi_derkjan/master_thesis/code/"
-    dists = get_input_dists(DISTRIBUTION_PATH, 'entropy50', [0, 1, 2, 3, 4], 3)
+    dists = get_input_dists_non_system(DISTRIBUTION_PATH, 'entropy50', [0, 1, 2, 3, 4], 3)
     for dist in dists:
         print(stats.entropy(dist.flatten()))
 
