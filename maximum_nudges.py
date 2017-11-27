@@ -133,8 +133,54 @@ def find_minimum_subset(weights, scores, total_size):
                                selected_weights[-1])
     return selected_indices, selected_weights
 
+def find_max_impact_individual_nudge_exactly(input_dist, cond_output, nudge_size, 
+                                             without_conditional=True):
+    """
+    Find the maximum individual individual nudge that can be performed
+
+    Parameters:
+    ----------
+    input_dist: nd-array representing a probability distribution
+    cond_output: nd-array
+        The distribution of the output (the last axis in the array) 
+        conditioned on the input
+    nudge_size: positive float
+    without_conditional = Boolean
+    """
+    new_input_dist = np.copy(input_dist)
+    max_impacts = []
+    if not without_conditional:
+        for i in range(len(new_input_dist.shape)):
+            new_input_dist = np.swapaxes(new_input_dist, i,
+                                         len(new_input_dist.shape)-1)
+            max_impact = find_maximum_local_nudge(
+                new_input_dist, cond_output, nudge_size
+            )
+            max_impacts.append(max_impact)
+            new_input_dist = np.swapaxes(new_input_dist, i,
+                                         len(new_input_dist.shape)-1)
+
+            return max(max_impacts)
+    else:
+        for i in range(len(new_input_dist.shape)):
+            new_input_dist = np.swapaxes(new_input_dist, i,
+                                         len(new_input_dist.shape)-1)
+            max_impact = find_maximum_local_nudge_without_conditional(
+                new_input_dist, cond_output, nudge_size
+            )
+            max_impacts.append(max_impact)
+            new_input_dist = np.swapaxes(new_input_dist, i,
+                                         len(new_input_dist.shape)-1)
+
+            return max(max_impacts)
+
 def find_maximum_local_nudge(input_dist, cond_output, nudge_size):
     """
+
+    Note: 
+    ----
+    This function actually the maximum INDIVIDUAL nudge impact exactly
+
 
     Parameters:
     ----------
