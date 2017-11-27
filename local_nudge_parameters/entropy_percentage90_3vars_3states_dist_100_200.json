@@ -1,0 +1,11 @@
+{
+  "change_mutation_size_weights": 0.5, 
+  "population_size": 20, 
+  "generational": true, 
+  "mutation_size_weights": 1.0, 
+  "parent_selection_mode": "rank_exponential", 
+  "number_of_children": 140, 
+  "number_of_generations": 500, 
+  "start_mutation_size": 0.01, 
+  "change_mutation_size": 0.5
+}
