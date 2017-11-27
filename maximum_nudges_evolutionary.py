@@ -607,15 +607,15 @@ if __name__ == "__main__":
 
     #local nudge optimization
     local_evolutionary_params = {
-        "number_of_generations": 1000,
+        "number_of_generations": 100,
         "population_size": 20,
-        "number_of_children": 60,
+        "number_of_children": 100,
         "generational": True,
         "parent_selection_mode": "rank_exponential",
-        "mutation_size_weights": 0.2,
-        "change_mutation_size_weights": 0.3,
+        "mutation_size_weights": 0.8,
+        "change_mutation_size_weights": 0.5,
         "start_mutation_size": 0.005,
-        "change_mutation_size": 0.3
+        "change_mutation_size": 0.5
     }
 
     max_local_nudge = find_maximum_local_nudge(
