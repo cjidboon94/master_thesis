@@ -40,8 +40,8 @@ def find_max_control_impact(input_dist, cond_output, nudge_size):
             np.reshape(allignment, (number_of_input_vars, len(output_nudge_state))),
             axis=1
         )
-        if output_nudge_state == (-1, -1, 1):
-            print(allignment_scores)
+        #if output_nudge_state == (-1, -1, 1):
+        #    print(allignment_scores)
 
         #print(output_nudge_state)
         nudge_states, nudge_sizes, nudge_impact = find_max_nudge_impact(
