@@ -179,7 +179,7 @@ def find_maximum_local_nudge(input_dist, cond_output, nudge_size):
 
     Note: 
     ----
-    This function actually the maximum INDIVIDUAL nudge impact exactly
+    This function actually finds the maximum INDIVIDUAL nudge impact exactly
 
 
     Parameters:
