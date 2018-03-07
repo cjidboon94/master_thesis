@@ -1,0 +1,17 @@
+*.pyc
+*.py~
+*.swp
+*.un~
+.ipynb_checkpoints
+*.out
+*.log
+*synctex.gz
+*~
+venv_*
+*.aux
+
+*.bbl
+*.blg
+*.nav
+*.snm
+*.toc
