@@ -2,8 +2,7 @@ import nudge_non_causal as nudge
 import numpy as np
 import evolutionary_algorithms as ea
 import probability_distributions
-
-import maximum_nudges
+import maximum_individual_nudges as maximum_nudges
 
 TEST = False
 def find_maximum_local_nudge(input_dist, cond_output, nudge_size,

@@ -2,11 +2,6 @@ import numpy as np
 from scipy.stats import entropy
 import itertools
 import copy
-import random
-
-from jointpdf.jointpdf import JointProbabilityMatrix
-from jointpdf.jointpdf import FullNestedArrayOfProbabilities
-from extension_probability_matrix import JointProbabilityMatrixExtended
 import probability_distributions
 from probability_distributions import ProbabilityArray
 

@@ -2,8 +2,6 @@ from __future__ import print_function
 import random
 import numpy as np
 from scipy.stats import entropy
-from jointpdf.jointpdf import JointProbabilityMatrix
-from jointpdf.jointpdf import FullNestedArrayOfProbabilities
 
  
 class ProbabilityArray():
@@ -63,55 +61,54 @@ class ProbabilityArray():
         return marginal_distribution
 
     def find_conditional(self, marginal_variables, conditional_variables):
-	"""create the conditional distribution for the selected_indices given 
-	the conditional_indices for the joint_distribution
-	
-	Parameters:
-	----------
-	marginal_indices: set of integers
-            variables that are not conditioned on but are included
-	conditional_indices: set of integers
-            variables that are conditioned on
-	
-	Returns: conditional_distribution, marginal_labels, conditional_labels 
-	-------
-        conditional_distribution: a numpy array
-        marginal_labels: list of integers
-            The variables that are NOT conditioned on
-        conditional_labels: list of integers
-            The variables that are conditioned on
+        """create the conditional distribution for the selected_indices given
+        the conditional_indices for the joint_distribution
 
-	"""
+        Parameters:
+        ----------
+        marginal_indices: set of integers
+                variables that are not conditioned on but are included
+        conditional_indices: set of integers
+                variables that are conditioned on
+
+        Returns: conditional_distribution, marginal_labels, conditional_labels
+        -------
+            conditional_distribution: a numpy array
+            marginal_labels: list of integers
+                The variables that are NOT conditioned on
+            conditional_labels: list of integers
+                The variables that are conditioned on
+
+        """
         joint_distribution, marginal_labels, conditional_labels = (
             self.find_joint_marginal(marginal_variables, conditional_variables)
         ) 
         
-	marginal_conditional = self.marginalize(conditional_labels,
-                                                joint_distribution)
-	conditional_distribution = np.copy(joint_distribution) 
-	it = np.nditer(joint_distribution, flags=['multi_index'])
-	while not it.finished:
+        marginal_conditional = self.marginalize(conditional_labels, joint_distribution)
+        conditional_distribution = np.copy(joint_distribution)
+        it = np.nditer(joint_distribution, flags=['multi_index'])
+        while not it.finished:
             if it.value == 0:
                 it.iternext()
                 continue
             conditional_arguments = tuple(
                 [it.multi_index[i] for i in conditional_labels]
             )
-	    conditional_distribution[it.multi_index] = (
-                it.value/marginal_conditional[conditional_arguments]
-	    )
-	    it.iternext()
-	
+            conditional_distribution[it.multi_index] = (
+                    it.value/marginal_conditional[conditional_arguments]
+            )
+            it.iternext()
+
         conditional_shape = [i for count, i in enumerate(joint_distribution.shape)
                              if count in conditional_labels]
-        total_sum_conditional_distribution = reduce(lambda x,y: x*y, 
+        total_sum_conditional_distribution = reduce(lambda x,y: x*y,
                                                     conditional_shape)
         if abs(np.sum(conditional_distribution)-total_sum_conditional_distribution)> 10**(-8):
             raise ValueError("sum is {} while it should be {}".format(
                 np.sum(conditional_distribution), total_sum_conditional_distribution
             ))
 
-    	return (conditional_distribution, marginal_labels, conditional_labels)
+        return (conditional_distribution, marginal_labels, conditional_labels)
 
     def find_joint_marginal(self, variables1, variables2, distribution=None):
         """
@@ -133,7 +130,7 @@ class ProbabilityArray():
 
         """
         all_variables = variables1.union(variables2)
-	joint_distribution = self.marginalize(all_variables, distribution)
+        joint_distribution = self.marginalize(all_variables, distribution)
         variable1_labels, variable2_labels = set(), set() 
         for count, variable in enumerate(sorted(list(all_variables))):
             if variable in variables1:
@@ -147,29 +144,29 @@ class ProbabilityArray():
             self, marginal_variables, conditional_variables, 
             conditional_state_gen
             ):
-	"""create the conditional distribution for the selected_indices given 
-	the conditional_indices for the joint_distribution
-	
-	Parameters:
-	----------
-	marginal_indices: set of integers
-            variables that are not conditioned on but are included
-	conditional_indices: set of integers
-            variables that are conditioned on
+        """create the conditional distribution for the selected_indices given
+        the conditional_indices for the joint_distribution
+
+        Parameters:
+        ----------
+        marginal_indices: set of integers
+                variables that are not conditioned on but are included
+        conditional_indices: set of integers
+                variables that are conditioned on
         conditional_state_gen: a generator
             Every time a marginal of the variables that are conditioned on
             is zero the generator is called for an "artificial" conditional
             state.
-	
-	Returns: conditional_distribution, marginal_labels, conditional_labels 
-	-------
-        conditional_distribution: a numpy array
-        marginal_labels: list of integers
-            The variables that are NOT conditioned on
-        conditional_labels: list of integers
-            The variables that are conditioned on
 
-	"""
+        Returns: conditional_distribution, marginal_labels, conditional_labels
+        -------
+            conditional_distribution: a numpy array
+            marginal_labels: list of integers
+                The variables that are NOT conditioned on
+            conditional_labels: list of integers
+                The variables that are conditioned on
+
+        """
         joint_distribution, marginal_labels, conditional_labels = (
             self.find_joint_marginal(marginal_variables, conditional_variables)
         ) 
@@ -193,16 +190,16 @@ class ProbabilityArray():
             conditional_arguments = tuple(
                 [it.multi_index[i] for i in conditional_labels]
             )
-	    conditional_distribution[it.multi_index] = (
-                it.value/marginal_conditional[conditional_arguments]
-	    )
-	    it.iternext()
-	
+            conditional_distribution[it.multi_index] = (
+                    it.value/marginal_conditional[conditional_arguments]
+            )
+            it.iternext()
+
         conditional_shape = [i for count, i in enumerate(joint_distribution.shape)
                              if count in conditional_labels]
-        total_sum_conditional_distribution = reduce(lambda x,y: x*y, 
+        total_sum_conditional_distribution = reduce(lambda x,y: x*y,
                                                     conditional_shape)
-        if abs(np.sum(conditional_distribution)-total_sum_conditional_distribution)> 10**(-8):
+        if abs(np.sum(conditional_distribution)-total_sum_conditional_distribution) > 10**(-8):
             print("conditional distribution")
             print(conditional_distribution)
             raise ValueError("sum is {} while it should be {}".format(
@@ -210,6 +207,7 @@ class ProbabilityArray():
             ))
 
         return (conditional_distribution, marginal_labels, conditional_labels)
+
 
 def compute_joint(marginal, conditional, conditional_labels):
     """compute the joint given the marginal and the conditional
@@ -236,7 +234,8 @@ def compute_joint(marginal, conditional, conditional_labels):
         joint, range(total_variables-len(conditional_labels), total_variables, 1), 
         conditional_labels
     )
-    return joint 
+    return joint
+
 
 def compute_joint_uniform_random(shape):
     """
@@ -257,6 +256,7 @@ def compute_joint_uniform_random(shape):
     number_of_states = reduce(lambda x,y: x*y, shape)
     dirichlet_random = np.random.dirichlet([1]*number_of_states)
     return np.reshape(dirichlet_random, shape)
+
 
 def compute_joint_from_independent_marginals(marginal1, marginal2, marginal_labels):
     """
@@ -284,6 +284,7 @@ def compute_joint_from_independent_marginals(marginal1, marginal2, marginal_labe
                             marginal_label)
     return joint
 
+
 def mutate_distribution_old(distribution, mutation_size):
     """
     Mutate the probability distribution
@@ -304,6 +305,7 @@ def mutate_distribution_old(distribution, mutation_size):
         raise ValueError()
 
     return mutated_distribution
+
 
 def select_parents_old(amount_of_parents, sorted_population, rank_probabilities):
     """return the selected parents using stochastic universal selection 
@@ -336,6 +338,7 @@ def select_parents_old(amount_of_parents, sorted_population, rank_probabilities)
             parents.append(population[index])
 
     return parents
+
 
 def produce_distribution_with_entropy_evolutionary_old(
         shape, entropy_size, number_of_trials, 
@@ -409,6 +412,7 @@ def produce_distribution_with_entropy_evolutionary_old(
 
     return population[0]
 
+
 def generate_probability_distribution_with_certain_entropy(
             shape, final_entropy_size,  
             zero_marginals_removed=False
@@ -453,6 +457,7 @@ def generate_probability_distribution_with_certain_entropy(
         distribution = remove_zero_marginals(distribution)
     return distribution
 
+
 def remove_zero_marginals(distribution):
     """remove all states for which a marginal has probability zero
     
@@ -491,6 +496,7 @@ def remove_zero_marginals(distribution):
 
     return new_distribution
 
+
 def decrease_entropy(distribution, state1, state2, max_difference, set_zero=False):
     """
     Decrease the entropy of a distribution by a random amount
@@ -526,6 +532,7 @@ def decrease_entropy(distribution, state1, state2, max_difference, set_zero=Fals
         return -(initial_entropy - entropy_after)
     else:
         return decrease_entropy(distribution, state2, state1, max_difference)
+
 
 class ProbabilityDict():
     """

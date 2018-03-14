@@ -1,6 +1,4 @@
-import numpy as np
 from scipy.stats import entropy
-import probability_distributions as pb
 from probability_distributions import ProbabilityArray
 
 def calculate_mutual_information(distribution, variables1, variables2):
@@ -9,7 +7,7 @@ def calculate_mutual_information(distribution, variables1, variables2):
 
     Parameters:
     ----------
-    distribution: a probability array instance 
+    distribution: a ProbabilityArray instance
     variables1, variables2: set of integers
 
     """

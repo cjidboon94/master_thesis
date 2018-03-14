@@ -1,11 +1,10 @@
-import random
 import nudge_non_causal as nudge
 import nudge as nudge_old
 import numpy as np
 import evolutionary_algorithms as ea
-import probability_distributions
 
 TEST = False
+
 
 def find_synergistic_nudge_with_max_impact(input_dist, cond_output, nudge_size, 
                                            evolutionary_parameters):
@@ -121,7 +120,6 @@ class SynergisticNudge():
             distribution, output_label, self.mutations_per_update_step,
             self.mutation_size
         )
-
 
     def mutate(self):
         """

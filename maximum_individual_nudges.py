@@ -2,7 +2,8 @@ import itertools
 import numpy as np
 import probability_distributions
 from probability_distributions import ProbabilityArray
-import combining_routes
+from routes import combining_routes
+
 
 def find_max_control_impact(input_dist, cond_output, nudge_size):
     """
@@ -57,6 +58,7 @@ def find_max_control_impact(input_dist, cond_output, nudge_size):
 
     return max_nudge_states, max_nudge_sizes, max_impact
 
+
 def find_max_nudge_impact(scores, weights, nudge_size):
     """
     Find the nudge that pushes the output variable maximally towards the 
@@ -93,6 +95,7 @@ def find_max_nudge_impact(scores, weights, nudge_size):
     nudge_sizes[-1] = positive_nudge_size
     nudge_impact = np.sum(scores[selected_states] * nudge_sizes)
     return selected_states, nudge_sizes, nudge_impact
+
 
 def find_minimum_subset(weights, scores, total_size):
     """
@@ -132,6 +135,7 @@ def find_minimum_subset(weights, scores, total_size):
     selected_weights[-1] = min(total_size-sum(selected_weights[:-1]),
                                selected_weights[-1])
     return selected_indices, selected_weights
+
 
 def find_max_impact_individual_nudge_exactly(input_dist, cond_output, nudge_size, 
                                              without_conditional=True):
@@ -173,6 +177,7 @@ def find_max_impact_individual_nudge_exactly(input_dist, cond_output, nudge_size
                                          len(new_input_dist.shape)-1)
 
             return max(max_impacts)
+
 
 def find_maximum_local_nudge(input_dist, cond_output, nudge_size):
     """
@@ -300,6 +305,7 @@ def find_maximum_local_nudge(input_dist, cond_output, nudge_size):
             #print("")
 
     return max_impact
+
 
 def find_maximum_local_nudge_without_conditional(input_dist, cond_output, nudge_size):
     """
@@ -430,6 +436,7 @@ def find_maximum_local_nudge_without_conditional(input_dist, cond_output, nudge_
 
     return max_impact
 
+
 def create_routes(states_and_scores_list, nudge_size, positive_scores):
     routes= []
     for states, scores in states_and_scores_list:
@@ -437,6 +444,7 @@ def create_routes(states_and_scores_list, nudge_size, positive_scores):
         routes.append(route)
 
     return routes
+
 
 def create_route(states, scores, nudge_size, positive_scores): 
     """
