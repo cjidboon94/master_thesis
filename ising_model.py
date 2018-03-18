@@ -25,9 +25,30 @@ def update_random_node(network, temperature):
         #print("not flipped node")
 
 
-def update_network(network, timesteps, temperature):
+def update_random_node_glauber(network, temperature):
+    #pick a node randomly
+    node = np.random.choice(network.nodes())
+
+    #update the node
+    neighbors = [neighbor for neighbor in network.neighbors(node)]
+    energy_neighbors = np.sum([network.node[neighbor]["value"] for neighbor in neighbors])
+    if np.sign(network.node[node]["value"]) == np.sign(energy_neighbors):
+        energy_change = abs(energy_neighbors)
+    else:
+        energy_change = -abs(energy_neighbors)
+
+    transition_probability = 1 / (1 + np.exp(energy_change/temperature))
+    if np.random.random() < transition_probability:
+        network.node[node]["value"] *= -1
+        #print("flipped node")
+
+
+def update_network(network, timesteps, temperature, update_method="glauber"):
     for _ in range(timesteps*len(network.nodes())):
-        update_random_node(network, temperature)
+        if update_method == "glauber":
+            update_random_node_glauber(network, temperature)
+        else:
+            update_random_node(network, temperature)
 
 
 def set_values_nodes_uniform(network):
@@ -161,7 +182,7 @@ if __name__ == "__main__":
     start = time.time()
     for sample_number in range(number_of_samples):
         print("sample number {}".format(sample_number))
-        update_network(network, timesteps, temperature)
+        update_network(network, timesteps, temperature, update_method="glauber")
         for node in network.nodes():
             samples.at[sample_number, node] = network.node[node]["value"]
 
