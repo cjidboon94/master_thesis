@@ -114,7 +114,7 @@ def select_nodes(network, max_neighbors):
 
     :param network: networkx Graph
     :param max_neighbors: integer
-    :return: a list
+    :return: a list of ints
     """
     degree_to_nodes = {}
     for node, degree in network.degree():
