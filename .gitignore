@@ -10,8 +10,10 @@
 venv_*
 *.aux
 
+*.npy
 *.bbl
 *.blg
 *.nav
 *.snm
 *.toc
+ising_distributions/*
