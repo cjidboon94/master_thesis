@@ -9,7 +9,7 @@
 *~
 venv_*
 *.aux
-
+.idea/
 *.npy
 *.bbl
 *.blg
