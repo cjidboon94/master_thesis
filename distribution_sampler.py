@@ -8,15 +8,15 @@ def entropy(dist: np.ndarray):
 
 
 def midpoint(min: np.ndarray, max: np.ndarray):
-    mid = min * np.sum(max,dtype=np.float128) + max * np.sum(min,dtype=np.float128)
-    return mid/np.sum(mid,dtype=np.float128)
+    mid = min * sum(max) + max * sum(min)
+    return mid/sum(mid)
 
 
 def sample(n_states: int, level: float):
     if level < 0 or level >1:
         raise ValueError("level should be between 0 and 1")
-    u = np.ones(n_states, dtype=np.float128)
-    d = np.random.dirichlet(u).astype(dtype=np.float128)
+    u = np.ones(n_states)
+    d = np.random.dirichlet(u)
     max_entropy = entropy(u)
     if entropy(d)/max_entropy == level:
         return d
@@ -25,7 +25,7 @@ def sample(n_states: int, level: float):
         # multiply support with a factor so that its a very narrow support
         if sample_again:
             support = 1000*support
-            return np.random.dirichlet(support).astype(dtype=np.float128)
+            return np.random.dirichlet(support)
         else:
             return support
 
@@ -33,12 +33,12 @@ def bin_search(dist: np.ndarray, level: float):
     max_entropy = entropy(np.ones(len(dist)))
     if entropy(dist) / max_entropy >= level:
         max = dist
-        min = np.zeros(len(dist),dtype=np.float128)
+        min = np.zeros(len(dist))
         min[np.random.randint(len(min))] = 1.
         if entropy(min) / max_entropy == level:
             return min, False
     else:
-        max = np.ones(len(dist),dtype=np.float128)
+        max = np.ones(len(dist))
         min = dist
         if entropy(max)/max_entropy == level:
             return max, False
