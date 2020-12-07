@@ -16,7 +16,8 @@ def callback(result):
     np.save("optimized_{}vars_{}dists_{}interventions_results.npy".format(len(n_vars),dists, interventions), result)
 
 #results = optim_experiment((levels,n_vars, dists, interventions, seeds))
-pool = mp.Pool(os.cpu_count())
-pool.map_async(optim_experiment, [(level, n_var, dists, interventions, seeds[i]) for i, (level, n_var) in enumerate(itertools.product(levels, n_vars))], callback=callback)
-pool.close()
-pool.join()
+print("Available CPUs:{}".format( os.cpu_count()))
+with mp.Pool(os.cpu_count()) as pool:
+	results = pool.map(optim_experiment, [(level, n_var, dists, interventions, seeds[i]) for i, (level, n_var) in enumerate(itertools.product(levels, n_vars))]) #callback=callback)
+callback(results)
+
