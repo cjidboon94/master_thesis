@@ -18,3 +18,4 @@ venv_*
 *.toc
 ising_distributions/*
 derkjan_code/*
+*.png
