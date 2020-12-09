@@ -2,6 +2,8 @@
 from typing import Dict
 
 def get_config( n_vars:int) -> Dict:
+    if n_vars == 2:
+        n_vars = 3
     config = {
         3 : {
             "mutations_per_update_step": 1,
