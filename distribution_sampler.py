@@ -1,10 +1,8 @@
 import numpy as np
 import scipy.stats as st
+from measures import entropy
 from math import isclose
 
-
-def entropy(dist: np.ndarray):
-    return st.entropy(dist, base=2)
 
 
 def midpoint(min: np.ndarray, max: np.ndarray):

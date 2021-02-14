@@ -2,6 +2,7 @@ import numpy as np
 import random
 import dit
 from typing import List
+from dist_utils import calculate_Y
 
 TEST = False
 
@@ -18,12 +19,13 @@ def do_derkjanistic_nudge(input_dist: dit.Distribution,  nudge_size:float):
         for i in range(2):
             for j in range(2):
                 state_vectors[i * 2 + j, [x_i, x_j]] = states_i[i], states_j[j]
-        state_strings = sorted(["".join(vector) for vector in state_vectors.astype(str)], key=lambda x: int(x, 3))
+        state_strings = sorted([tuple(vector) for vector in state_vectors])
+        #print(input_dist.outcomes)
         state_indices = [i for i, sample in enumerate(input_dist.sample_space()) if sample in state_strings]
         selected_states =  [{'label': label, 'index': index, 'prob': input_dist[label]} for label, index in
                 zip(state_strings, state_indices)]
         random.shuffle(selected_states)
-
+        #print(selected_states)
         if np.random.random() > 0.5:
             negs = (selected_states[0], selected_states[3])
             poss = (selected_states[1], selected_states[2])
@@ -54,7 +56,7 @@ def do_derkjanistic_nudge(input_dist: dit.Distribution,  nudge_size:float):
             raise ValueError()
     return new_distribution
 
-def max_derkjanistic_nudge(input_dist: dit.Distribution, conditional: List[dit.Distribution], nudge_size: float,
+def max_derkjanistic_nudge(input_dist: dit.Distribution, conditional: np.ndarray, nudge_size: float,
                        evolutionary_parameters: dict):
     "Optimized derkjanistic nudge"
     # create individuals
@@ -87,7 +89,7 @@ def max_derkjanistic_nudge(input_dist: dit.Distribution, conditional: List[dit.D
 
 class DerkjanisticNudge():
     def __init__(self, start_dist: dit.Distribution, new_dist: dit.Distribution,
-                 conditional: List[dit.Distribution], nudge_size: float, mutations_per_step: int,
+                 conditional: np.ndarray, nudge_size: float, mutations_per_step: int,
                  start_mutation_size: float, change_mutation_size: float, timestamp: int):
         self.start_dist = start_dist
         self.new_dist = new_dist
@@ -108,10 +110,8 @@ class DerkjanisticNudge():
                                      self.timestamp + 1)
 
     def evaluate(self):
-        old_y = dit.joint_from_factors(self.start_dist, self.conditional).marginal('Y').copy('linear')
-        old_y.make_dense()
-        new_y = dit.joint_from_factors(self.new_dist, self.conditional).marginal('Y').copy('linear')
-        new_y.make_dense()
+        old_y = calculate_Y(self.start_dist, self.conditional)
+        new_y = calculate_Y(self.new_dist, self.conditional)
         self.score =  -sum(abs(old_y.pmf - new_y.pmf))
 
     def mutate(self):
@@ -136,7 +136,7 @@ class DerkjanisticNudge():
             for i in range(2):
                 for j in range(2):
                     state_vectors[i * 2 + j, [x_i, x_j]] = states_i[i], states_j[j]
-            state_strings = sorted(["".join(vector) for vector in state_vectors.astype(str)], key=lambda x: int(x,3))
+            state_strings = sorted([tuple(vector) for vector in state_vectors])
             state_indices = [i for i, sample in enumerate(self.new_dist.sample_space()) if sample in state_strings]
             return [{'label': label, 'index':index, 'prob': self.new_dist[label]} for label, index in zip(state_strings, state_indices)]
 
@@ -184,7 +184,7 @@ class DerkjanisticNudge():
 
 
     @classmethod
-    def generate_individual(cls, input_dist: dit.Distribution, conditional: List[dit.Distribution], nudge_size: float,
+    def generate_individual(cls, input_dist: dit.Distribution, conditional: np.ndarray, nudge_size: float,
                              mutations_per_step: int, start_mutation_size: float,
                              change_mutation_size: float, timestamp: int):
         new_distribution = input_dist.copy()

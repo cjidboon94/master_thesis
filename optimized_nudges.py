@@ -6,15 +6,11 @@ import scipy.stats as st
 from nudge_utils import generate_log_nudge, generate_nudge, perform_nudge, perform_log_nudge
 from derkjanistic_nudges import max_derkjanistic_nudge as max_dj_nudge
 from evo_configs import get_config
+from measures import entropy
 
 #Utility functions
 
 # Utility functions
-
-def entropy(dist: np.ndarray):
-    return st.entropy(dist, base=2)
-
-
 def R(x, n, vs, states=3):
     x = x.reshape(-1, states)
     for i in range(n % vs):
@@ -36,7 +32,6 @@ def find_max_impact(scores, input, eps):
 def find_minimal_subset(scores, input, eps):
     nudge_vector = np.zeros(len(input))
     sorted_indices = np.argsort(scores)
-
     minus_weights = np.cumsum(input[sorted_indices])
     # Find the index in the sorted indices whose weight is at most eps
     i = np.argmax(np.cumsum(minus_weights < eps))
@@ -75,12 +70,11 @@ def max_nudge(input, conditional, eps=0.01, nudge_type='individual', minimal_ent
     return nudge_vector, minimal_entropy_idx
 
 
-def max_individual(input: dit.Distribution, conditional: List[dit.Distribution], eps: float = 0.01,
+def max_individual(input: dit.Distribution, conditional: np.ndarray, eps: float = 0.01,
                    minimal_entropy_idx=None):
     rvs = input.get_rv_names()
-    conditional = np.stack([d.copy('linear').pmf for d in conditional])
     conditional = conditional / conditional.sum()
-
+    states = len(input.alphabet[0])
     if not minimal_entropy_idx == 0 and not minimal_entropy_idx:
         minimal_entropy_idx = np.argmin(
             [entropy(input.marginal([rv], rv_mode='indices').pmf) for rv in range(len(rvs))])
@@ -94,12 +88,12 @@ def max_individual(input: dit.Distribution, conditional: List[dit.Distribution],
 
     # minimal_conditional = minimal_conditional.flatten()
     nudge_vector = np.zeros(indiv_shape)
-    rotated_conditional = R(conditional, minimal_entropy_idx, len(rvs))
+    rotated_conditional = R(conditional, minimal_entropy_idx, len(rvs), states)
     total_max_impact = 0
     # print(len(rvs), (eps / 2)/len(minimal_conditional))
     for i, mc_dist in enumerate(minimal_conditional):
 
-        rows = rotated_conditional[i * 3:(i + 1) * 3, :]
+        rows = rotated_conditional[i * states:(i + 1) * states, :]
 
         max_impact = 0
         for allignment in itertools.product([-1, 1], repeat=rotated_conditional.shape[1]):
@@ -119,7 +113,7 @@ def max_individual(input: dit.Distribution, conditional: List[dit.Distribution],
     return nudge_vector, total_max_impact, minimal_entropy_idx
 
 
-def max_local(input: dit.Distribution, conditional: List[dit.Distribution], eps: float = 0.01):
+def max_local(input: dit.Distribution, conditional: np.ndarray, eps: float = 0.01):
     rvs = input.get_rv_names()
     sorted_rvs = np.argsort([entropy(input.marginal([rv], rv_mode='indices').pmf) for rv in range(len(rvs))])
     nudge_vectors = np.zeros((input.outcome_length(), int(len(input) / 3),
@@ -130,7 +124,7 @@ def max_local(input: dit.Distribution, conditional: List[dit.Distribution], eps:
     return nudge_vectors, max_impacts
 
 
-def max_synergistic(input: dit.Distribution, conditional: List[dit.Distribution], eps: float = 0.01):
+def max_synergistic(input: dit.Distribution, conditional: np.ndarray, eps: float = 0.01):
     rvs = input.get_rv_names()
     states = input.alphabet[0]
     partition_size = int(len(input) / (len(states) ** 2))
@@ -161,23 +155,31 @@ def max_synergistic(input: dit.Distribution, conditional: List[dit.Distribution]
 
     for state, indices in best_outcome_dict.items():
         nudge_vector[indices] = max_global(input.pmf[indices],
-                                           [d for i, d in enumerate(conditional) if i in indices],
+                                           np.array([d for i, d in enumerate(conditional) if i in indices]),
                                            eps / len(best_outcome_dict), False)
 
     return nudge_vector, best_syn_vars
 
 
-def max_derkjanistic(input: dit.Distribution, conditional: List[dit.Distribution],
+def max_derkjanistic(input: dit.Distribution, conditional: np.ndarray,
                      eps: float = 0.01) -> dit.Distribution:
-    evo_params = get_config(len(input.get_rv_names()))
+    rvs = input.get_rv_names()
+    outcomes = input.outcomes
+    evo_params = get_config(len(rvs))
     max_dj_nudge_found = max_dj_nudge(input, conditional, eps, evo_params)
-    return max_dj_nudge_found.new_dist
+    new_X = max_dj_nudge_found.new_dist 
+    
+    dct = {o: new_X[o] if o in new_X.outcomes else 0.0 for o in outcomes}
+    #print(outcomes, dct)
+    new_X = dit.Distribution(dct) 
+    new_X.set_rv_names(rvs)
+    return new_X
 
 
-def max_global(input: dit.Distribution, conditional: List[dit.Distribution], eps: float = 0.01, first=True):
+def max_global(input: dit.Distribution, conditional: np.ndarray, eps: float = 0.01, first=True):
     max_impact = 0
     nudge_vector = np.zeros(len(input))
-    conditional = np.stack([d.copy('linear').pmf for d in conditional])  # stack the conditional
+    #conditional = np.stack([d.copy('linear').pmf for d in conditional])  # stack the conditional
     conditional = conditional / conditional.sum()  # normalize the conditional to give each
     for allignment in itertools.product([-1, 1], repeat=conditional.shape[1]):
         allignment = np.array(allignment)
@@ -200,7 +202,7 @@ def max_global(input: dit.Distribution, conditional: List[dit.Distribution], eps
     return nudge_vector
 
 
-def max_individual_nudge(old_X: dit.Distribution, YgivenX: List[dit.Distribution], eps: float = 0.01):
+def max_individual_nudge(old_X: dit.Distribution, YgivenX: np.ndarray, eps: float = 0.01):
     if old_X.outcome_length() == 1:
         return max_global_nudge(old_X, YgivenX, eps)
     nudges, minimal_idx = max_nudge(old_X.copy('linear'), YgivenX, eps=eps, nudge_type='individual')
@@ -212,7 +214,9 @@ def do_max_individual_nudge(old_X, nudges, minimal_idx, from_local=False):
     mask = old_X._mask
     base = old_X.get_base()
     rvs = old_X.get_rv_names()
-
+    outcomes = old_X.outcomes
+    states = len(old_X.alphabet[0])
+    
     non_minimal_rvs = rvs[:minimal_idx] + rvs[minimal_idx + 1:]
     Xother, Xi_given_Xother = old_X.condition_on(non_minimal_rvs)
     old_shape = len(old_X)
@@ -231,7 +235,7 @@ def do_max_individual_nudge(old_X, nudges, minimal_idx, from_local=False):
     new_X = dit.joint_from_factors(Xother, Xi_given_Xother).copy(base)
     new_X.make_dense()
     new_shape = len(new_X)
-    x = new_X.pmf.reshape(-1, 3)
+    x = new_X.pmf.reshape(-1, states)
     y = [np.all(r == -np.inf) for r in x]
     row_deleted = np.any(y)
 
@@ -241,11 +245,16 @@ def do_max_individual_nudge(old_X, nudges, minimal_idx, from_local=False):
         print("new_X", new_X.pmf.reshape(-1, 3))
         print("old Xis", np.vstack([oXi.pmf for oXi in old_Xis]))
         print("new Xis", np.vstack([nXi.pmf for nXi in Xi_given_Xother]))
+    
+    dct = {o: new_X[o] if o in new_X.outcomes else 0.0 for o in outcomes}
+    #print(outcomes, dct)
+    new_X = dit.Distribution(dct) 
+    new_X.set_rv_names(rvs)
     new_X._mask = mask
     return new_X
 
 
-def max_local_nudge1(old_X: dit.Distribution, YgivenX: List[dit.Distribution], eps: float = 0.01):
+def max_local_nudge1(old_X: dit.Distribution, YgivenX: np.ndarray, eps: float = 0.01):
     if old_X.outcome_length() == 1:
         return max_global_nudge(old_X, YgivenX, eps)
 
@@ -253,7 +262,9 @@ def max_local_nudge1(old_X: dit.Distribution, YgivenX: List[dit.Distribution], e
     base = old_X.get_base()
     new_X = old_X.copy(base=base)
     old_X.make_dense()
-
+    outcomes = old_X.outcomes
+    rvs = old_X.get_rv_names()
+    
     individual_nudges, _ = max_nudge(old_X.copy('linear'), YgivenX, eps=eps, nudge_type='local')
     new_Xs = np.zeros((old_X.outcome_length(), len(old_X)))
     for i, nudges in enumerate(individual_nudges):
@@ -270,12 +281,15 @@ def max_local_nudge1(old_X: dit.Distribution, YgivenX: List[dit.Distribution], e
     else:
         log_nudge, sign = np.log(np.abs(nudge)), np.sign(nudge)
         perform_log_nudge(new_X, log_nudge, sign)
-
+    dct = {o: new_X[o] if o in new_X.outcomes else 0.0 for o in outcomes}
+    #print(outcomes, dct)
+    new_X = dit.Distribution(dct) 
+    new_X.set_rv_names(rvs)
     new_X._mask = mask
     return new_X
 
 
-def max_local_nudge2(old_X: dit.Distribution, YgivenX: List[dit.Distribution], eps: float = 0.01):
+def max_local_nudge2(old_X: dit.Distribution, YgivenX: np.ndarray, eps: float = 0.01):
     if old_X.outcome_length() == 1:
         return max_global_nudge(old_X, YgivenX, eps)
 
@@ -286,7 +300,7 @@ def max_local_nudge2(old_X: dit.Distribution, YgivenX: List[dit.Distribution], e
     rvs = old_X.get_rv_names()
     sorted_rvs = np.argsort([entropy(old_X.marginal([rv], rv_mode='indices').pmf) for rv in range(len(rvs))])
     oldshape = len(old_X)
-
+    outcomes = old_X.outcomes
     # print("before", new_X.pmf.shape)
     for i, rv in enumerate(sorted_rvs):
         nudges, _ = max_nudge(new_X.copy('linear'), YgivenX, eps=(eps / len(sorted_rvs)),
@@ -299,17 +313,23 @@ def max_local_nudge2(old_X: dit.Distribution, YgivenX: List[dit.Distribution], e
     #  if oldshape != newshape:
     #      print(nudges)
     #   print("after {} and making dense".format(i), new_X.pmf.shape)
+    dct = {o: new_X[o] if o in new_X.outcomes else 0.0 for o in outcomes}
+    #print(outcomes, dct)
+    new_X = dit.Distribution(dct) 
+    new_X.set_rv_names(rvs)
+    new_X._mask = mask
     return new_X
 
 
 max_local_nudge = max_local_nudge2
 
 
-def max_synergistic_nudge(old_X: dit.Distribution, YgivenX: List[dit.Distribution], eps: float = 0.01):
+def max_synergistic_nudge(old_X: dit.Distribution, YgivenX: np.ndarray, eps: float = 0.01):
     base = old_X.get_base()
     new_X = old_X.copy(base=base)
     old_X.make_dense()
     rvs = old_X.get_rv_names()
+    outcomes = old_X.outcomes
     if len(rvs) < 3:
         return max_global_nudge(old_X, YgivenX, eps)
 
@@ -320,25 +340,31 @@ def max_synergistic_nudge(old_X: dit.Distribution, YgivenX: List[dit.Distributio
     else:
         log_nudge, sign = np.log(np.abs(nudge)), np.sign(nudge)
         perform_log_nudge(new_X, log_nudge, sign)
+    dct = {o: new_X[o] if o in new_X.outcomes else 0.0 for o in outcomes}
+    #print(outcomes, dct)
+    new_X = dit.Distribution(dct) 
+    new_X.set_rv_names(rvs)
     return new_X
 
 
-def max_derkjanistic_nudge(old_X: dit.Distribution, YgivenX: List[dit.Distribution], eps: float = 0.01):
+def max_derkjanistic_nudge(old_X: dit.Distribution, YgivenX: np.ndarray, eps: float = 0.01):
     rvs = old_X.get_rv_names()
     if len(rvs) < 2:
         return max_global_nudge(old_X, YgivenX, eps)
 
     base = old_X.get_base()
-    linear_conditional = [y.copy('linear') for y in YgivenX]
-    new_X = max_derkjanistic(old_X.copy('linear'), linear_conditional, eps)
+    
+    new_X = max_derkjanistic(old_X.copy('linear'), YgivenX, eps)
     return new_X.copy(base)
 
 
-def max_global_nudge(old_X: dit.Distribution, YgivenX: List[dit.Distribution], eps: float = 0.01):
+def max_global_nudge(old_X: dit.Distribution, YgivenX: np.ndarray, eps: float = 0.01):
     base = old_X.get_base()
     new_X = old_X.copy(base=base)
     old_X.make_dense()
-
+    rvs = old_X.get_rv_names()
+    outcomes = old_X.outcomes
+    
     nudge, _ = max_nudge(old_X.copy('linear'), YgivenX, eps=eps, nudge_type='global')
 
     #  print("global eps",sum(abs(nudge)), eps, old_X.outcome_length())
@@ -351,6 +377,11 @@ def max_global_nudge(old_X: dit.Distribution, YgivenX: List[dit.Distribution], e
         # log_nudge[log_nudge == -np.inf] = 0
         # print("converted to log nudge",nudge, log_nudge, sign)
         perform_log_nudge(new_X, log_nudge, sign)
+    
+    dct = {o: new_X[o] if o in new_X.outcomes else 0.0 for o in outcomes}
+    #print(outcomes, dct)
+    new_X = dit.Distribution(dct) 
+    new_X.set_rv_names(rvs)
     return new_X
 
 

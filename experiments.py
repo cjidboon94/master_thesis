@@ -1,11 +1,14 @@
 import numpy as np
-from dist_utils import generate_distribution, get_marginals
+from dist_utils import generate_distribution, get_marginals, load_dist, calculate_Y
 import dit
 from dit.validate import InvalidNormalization
 from dit.exceptions import  ditException
 
 from nudges import individual_nudge, local_nudge, synergistic_nudge, derkjanistic_nudge, global_nudge
 from optimized_nudges import max_individual_nudge, max_local_nudge, max_synergistic_nudge, max_derkjanistic_nudge, max_global_nudge
+
+from ising_model import get_transition_probabilities
+
 
 def experiment(inputs):
     level, n_vars, dists, interventions, seed = inputs
@@ -95,3 +98,84 @@ def optim_experiment(inputs):
 
     print(level, n_vars, "done")
     return (level, n_vars), means
+
+def real_experiment(inputs):
+    #n_vars = neighbors, model = sis/ising, parameter=beta&gamma/temperature, dists, seed, interventions
+    n_vars, model, parameter, dists, interventions, seed = inputs
+    np.random.seed(seed)
+    
+    nudges = [individual_nudge, local_nudge, synergistic_nudge, derkjanistic_nudge, global_nudge]
+    means = np.zeros((dists, len(nudges)))
+    for i in range(dists):
+        #Load distribution
+        old_X = load_dist( model, parameter, n_vars, i) #Returns a dit Distribution or None. If None, skip this loop
+        if old_X:
+            #Generate transition probabilities
+            YgivenX = get_transition_probabilities(model, n_vars, parameter)
+            #Calculate old output marginal
+            old_Y = calculate_Y(old_X, YgivenX)
+
+            oldest_X = old_X.copy()
+
+            intervention_results = np.zeros((len(nudges), interventions))
+            for j in range(interventions):
+                for idx, nudge in enumerate(nudges):
+                    print(nudge)
+                    #print(old_X, oldest_X)
+                    if not np.allclose(old_X.pmf, oldest_X.pmf):
+                        raise ValueError("Something went wrong during {}. Original X has changed".format(nudge.__name__))
+                    new_X = None
+                    #Nudge it
+                    try:
+                        new_X = nudge(old_X)
+                        #print(new_X)
+                    except IndexError as e:
+                        print(n_vars, nudge, e)
+                        raise e
+                    #Calculate the new output marginal
+                    
+                    new_Y = calculate_Y(new_X, YgivenX)
+                    
+                    #Calculate effect
+                    intervention_results[idx, j] = sum(abs(new_Y.pmf - old_Y.pmf))  #l1 norm
+            means[i, :] = np.median(intervention_results, axis=1)
+        
+    print(model, n_vars, parameter, "done")
+    return (model, n_vars, parameter), means
+    
+
+def real_optim_experiment(inputs):
+    n_vars, model, parameter, dists, interventions, seed = inputs
+    np.random.seed(seed)
+    
+
+    nudges = [max_individual_nudge, max_local_nudge, max_synergistic_nudge,
+              max_derkjanistic_nudge, max_global_nudge]
+    means = np.zeros((dists, len(nudges)))
+    for i in range(dists):
+        #Load distribution
+        old_X = load_dist( model, parameter, n_vars, i)
+        #Generate transition probabilities
+        YgivenX = get_transition_probabilities(model, n_vars, parameter)
+        #Calculate old output marginal
+        old_Y = calculate_Y(old_X, YgivenX)
+        
+        oldest_X = old_X.copy()
+
+        intervention_results = np.zeros((len(nudges), interventions))
+        for j in range(interventions):
+            for idx, nudge in enumerate(nudges):
+                print(nudge)
+                new_X = nudge(old_X, YgivenX)
+                new_Y = calculate_Y(new_X, YgivenX)
+                new_Y.make_dense()
+                # print(idx, "X", old_X.copy('linear').pmf, new_X.copy('linear').pmf)
+                # print(idx, "XY", XY.copy('linear').pmf, new_XY.copy('linear').pmf)
+                # print(idx, "Y", old_Y.pmf, new_Y.pmf)
+                intervention_results[idx, j] = sum(abs(new_Y.pmf - old_Y.pmf))
+
+        means[i, :] = np.median(intervention_results, axis=1)
+
+    print(model, n_vars, parameter, "done")
+    return (model, n_vars, parameter), means
+    
