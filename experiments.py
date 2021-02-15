@@ -152,7 +152,7 @@ def real_optim_experiment(inputs):
     nudges = [max_individual_nudge, max_local_nudge, max_synergistic_nudge,
               max_derkjanistic_nudge, max_global_nudge]
     if type(dists) == type(range(1)):
-        means = np.zeros((len(dists), len(nudges))
+        means = np.zeros((len(dists), len(nudges)))
         r_dists = dists
     else:
         means = np.zeros((dists, len(nudges)))
