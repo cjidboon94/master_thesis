@@ -141,7 +141,7 @@ def real_experiment(inputs):
             means[i, :] = np.median(intervention_results, axis=1)
         
     print(model, n_vars, parameter, "done")
-    return (model, n_vars, parameter), means
+    return (n_vars, parameter), means
     
 
 def real_optim_experiment(inputs):
