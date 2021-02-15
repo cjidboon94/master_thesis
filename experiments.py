@@ -120,7 +120,7 @@ def real_experiment(inputs):
             intervention_results = np.zeros((len(nudges), interventions))
             for j in range(interventions):
                 for idx, nudge in enumerate(nudges):
-                    print(nudge)
+                    #print(nudge)
                     #print(old_X, oldest_X)
                     if not np.allclose(old_X.pmf, oldest_X.pmf):
                         raise ValueError("Something went wrong during {}. Original X has changed".format(nudge.__name__))
@@ -170,7 +170,7 @@ def real_optim_experiment(inputs):
         intervention_results = np.zeros((len(nudges), interventions))
         for j in range(interventions):
             for idx, nudge in enumerate(nudges):
-                print(nudge)
+                #print(nudge)
                 new_X = nudge(old_X, YgivenX)
                 new_Y = calculate_Y(new_X, YgivenX)
                 new_Y.make_dense()

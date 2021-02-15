@@ -241,8 +241,8 @@ def do_max_individual_nudge(old_X, nudges, minimal_idx, from_local=False):
 
     if from_local and new_shape != old_shape or from_local and row_deleted:
         print("nudges:", nudges)
-        print("old_X:", old_X.pmf.reshape(-1, 3))
-        print("new_X", new_X.pmf.reshape(-1, 3))
+        print("old_X:", old_X.pmf.reshape(-1, states))
+        print("new_X", new_X.pmf.reshape(-1, states))
         print("old Xis", np.vstack([oXi.pmf for oXi in old_Xis]))
         print("new Xis", np.vstack([nXi.pmf for nXi in Xi_given_Xother]))
     
