@@ -151,8 +151,13 @@ def real_optim_experiment(inputs):
 
     nudges = [max_individual_nudge, max_local_nudge, max_synergistic_nudge,
               max_derkjanistic_nudge, max_global_nudge]
-    means = np.zeros((dists, len(nudges)))
-    for i in range(dists):
+    if type(dists) == type(range(1)):
+        means = np.zeros((len(dists), len(nudges))
+        r_dists = dists
+    else:
+        means = np.zeros((dists, len(nudges)))
+        r_dists = range(dists)
+    for i in r_dists:
         #Load distribution
         old_X = load_dist( model, parameter, n_vars, i)
         #Generate transition probabilities
