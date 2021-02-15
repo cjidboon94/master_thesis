@@ -10,7 +10,7 @@ n_vars = range(1,10)
 temperatures = np.linspace(0, 3, 21)
 dists = 30
 interventions = 20
-seeds = np.random.randint(0, 2**32-1, len(n_vars)*len(levels))
+seeds = np.random.randint(0, 2**32-1, len(n_vars)*len(temperatures))
 
 
 #n_vars, model, parameter, dists, interventions, seed, function signature
