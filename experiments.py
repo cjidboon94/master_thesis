@@ -140,9 +140,9 @@ def real_experiment(inputs):
                     intervention_results[idx, j] = sum(abs(new_Y.pmf - old_Y.pmf))  #l1 norm
             means[i, :] = np.median(intervention_results, axis=1)
     if model == "ising":
-        np.save("ising_random_{}vars_{}dists_{}interventions_{:.2f}_results.npy".format(len(n_vars),dists, interventions, parameter), means)
+        np.save("ising_random_{}vars_{}dists_{}interventions_{:.2f}_results.npy".format(n_vars,dists, interventions, parameter), means)
     else:
-        np.save("sis_optim_{}vars_{}dists_{}interventions_{:.2f}_{:.2f}_results.npy".format(len(n_vars),dists, interventions, parameter[0],parameter[1]), means)
+        np.save("sis_optim_{}vars_{}dists_{}interventions_{:.2f}_{:.2f}_results.npy".format(n_vars,dists, interventions, parameter[0],parameter[1]), means)
     print(model, n_vars, parameter, "done")
     return
     
@@ -184,9 +184,9 @@ def real_optim_experiment(inputs):
 
         means[i, :] = np.median(intervention_results, axis=1)
     if model == "ising":
-        np.save("ising_optim_{}vars_{}dists_{}interventions_{:.2f}_results.npy".format(len(n_vars),r_dists[-1], interventions, parameter), means)
+        np.save("ising_optim_{}vars_{}dists_{}interventions_{:.2f}_results.npy".format(n_vars,r_dists[-1], interventions, parameter), means)
     else:
-        np.save("sis_optim_{}vars_{}dists_{}interventions_{:.2f}_{:.2f}_results.npy".format(len(n_vars),r_dists[-1], interventions, parameter[0],parameter[1]), means)
+        np.save("sis_optim_{}vars_{}dists_{}interventions_{:.2f}_{:.2f}_results.npy".format(n_vars,r_dists[-1], interventions, parameter[0],parameter[1]), means)
     print(model, n_vars, parameter, "done")
     return
     
