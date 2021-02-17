@@ -3,12 +3,15 @@ import numpy as np
 import multiprocessing as mp
 import itertools
 import os
+import resource, sys
+resource.setrlimit(resource.RLIMIT_STACK, (2**29,-1))
+sys.setrecursionlimit(10**6)
 
 #settings
 
 n_vars = range(1,10)
 temperatures = np.linspace(0, 3, 21)
-dists = 30
+dists = range(5,10)
 interventions = 20
 seeds = np.random.randint(0, 2**32-1, len(n_vars)*len(temperatures))
 

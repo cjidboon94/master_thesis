@@ -239,12 +239,12 @@ def do_max_individual_nudge(old_X, nudges, minimal_idx, from_local=False):
     y = [np.all(r == -np.inf) for r in x]
     row_deleted = np.any(y)
 
-    if from_local and new_shape != old_shape or from_local and row_deleted:
-        print("nudges:", nudges)
-        print("old_X:", old_X.pmf.reshape(-1, states))
-        print("new_X", new_X.pmf.reshape(-1, states))
-        print("old Xis", np.vstack([oXi.pmf for oXi in old_Xis]))
-        print("new Xis", np.vstack([nXi.pmf for nXi in Xi_given_Xother]))
+    #if from_local and new_shape != old_shape or from_local and row_deleted:
+    #    print("nudges:", nudges)
+    #    print("old_X:", old_X.pmf.reshape(-1, states))
+    #    print("new_X", new_X.pmf.reshape(-1, states))
+    #    print("old Xis", np.vstack([oXi.pmf for oXi in old_Xis]))
+    #    print("new Xis", np.vstack([nXi.pmf for nXi in Xi_given_Xother]))
     
     dct = {o: new_X[o] if o in new_X.outcomes else 0.0 for o in outcomes}
     #print(outcomes, dct)
